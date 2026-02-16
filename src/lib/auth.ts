@@ -22,12 +22,6 @@ declare module "next-auth" {
   }
 }
 
-// Extend JWT type
-interface ExtendedJWT {
-  id: string;
-  role: UserRole;
-  consultantId: string | null;
-}
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -81,10 +75,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     async session({ session, token }) {
       if (token) {
-        const extToken = token as ExtendedJWT;
-        session.user.id = extToken.id;
-        session.user.role = extToken.role;
-        session.user.consultantId = extToken.consultantId;
+        session.user.id = token.id as string;
+        session.user.role = token.role as UserRole;
+        session.user.consultantId = token.consultantId as string | null;
       }
       return session;
     },
