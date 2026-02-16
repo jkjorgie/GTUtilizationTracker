@@ -47,7 +47,7 @@ import { createMassLoad, previewMassLoad, MassLoadFormData } from "@/app/actions
 const formSchema = z.object({
   consultantIds: z.array(z.string()).min(1, "Select at least one consultant"),
   projectId: z.string().min(1, "Project is required"),
-  startDate: z.date({ required_error: "Start date is required" }),
+  startDate: z.date({ error: "Start date is required" }),
   endDate: z.date().optional(),
   hours: z.number().min(0.5).max(80),
   entryType: z.nativeEnum(AllocationEntryType),
