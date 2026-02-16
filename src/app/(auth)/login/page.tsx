@@ -87,11 +87,6 @@ export default function LoginPage() {
             </Button>
           </form>
           
-          <div className="mt-6 text-center text-sm text-muted-foreground">
-            <p>Demo accounts:</p>
-            <p className="mt-1">admin@company.com / password123</p>
-            <p>manager@company.com / password123</p>
-          </div>
         </CardContent>
       </Card>
     </div>

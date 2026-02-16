@@ -144,6 +144,11 @@ export async function deleteProject(id: string) {
 }
 
 export async function getActiveProjects() {
+  const session = await auth();
+  if (!session) {
+    throw new Error("Unauthorized");
+  }
+
   return prisma.project.findMany({
     where: { status: ProjectStatus.ACTIVE },
     orderBy: { projectName: "asc" },

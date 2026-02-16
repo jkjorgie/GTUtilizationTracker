@@ -170,6 +170,11 @@ export async function deleteConsultant(id: string) {
 }
 
 export async function getAllConsultants() {
+  const session = await auth();
+  if (!session) {
+    throw new Error("Unauthorized");
+  }
+
   return prisma.consultant.findMany({
     orderBy: { name: "asc" },
     select: {
