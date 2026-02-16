@@ -1,4 +1,4 @@
-import NextAuth from "next-auth";
+import NextAuth, { type DefaultSession } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { prisma } from "./prisma";
 import bcrypt from "bcryptjs";
@@ -11,8 +11,7 @@ declare module "next-auth" {
       email: string;
       role: UserRole;
       consultantId: string | null;
-      name?: string | null;
-    };
+    } & DefaultSession["user"];
   }
 
   interface User {
@@ -23,12 +22,11 @@ declare module "next-auth" {
   }
 }
 
-declare module "@auth/core/jwt" {
-  interface JWT {
-    id: string;
-    role: UserRole;
-    consultantId: string | null;
-  }
+// Extend JWT type
+interface ExtendedJWT {
+  id: string;
+  role: UserRole;
+  consultantId: string | null;
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
@@ -83,9 +81,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     async session({ session, token }) {
       if (token) {
-        session.user.id = token.id;
-        session.user.role = token.role;
-        session.user.consultantId = token.consultantId;
+        const extToken = token as ExtendedJWT;
+        session.user.id = extToken.id;
+        session.user.role = extToken.role;
+        session.user.consultantId = extToken.consultantId;
       }
       return session;
     },
