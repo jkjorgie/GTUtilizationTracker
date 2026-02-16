@@ -1,0 +1,171 @@
+// GT Utilization Tracker - Prisma Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Enums
+enum UserRole {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum GroupType {
+  SA
+  BA
+  TECH
+  UX
+  AI
+}
+
+enum RoleLevel {
+  LVL2
+  LVL3
+  LVL4
+  LVL5
+  LEAD
+}
+
+enum OvertimePreference {
+  NONE
+  LIMITED
+  OPEN
+}
+
+enum ProjectType {
+  BILLABLE
+  ASSIGNED
+  FILLER
+  PROJECTED
+}
+
+enum ProjectStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AllocationEntryType {
+  ACTUAL
+  PROJECTED
+}
+
+enum PTOStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+// Models
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  role         UserRole   @default(EMPLOYEE)
+  consultantId String?    @unique
+  consultant   Consultant? @relation(fields: [consultantId], references: [id])
+  
+  createdAllocations Allocation[] @relation("AllocationCreator")
+  approvedPTOs       PTORequest[] @relation("PTOApprover")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Consultant {
+  id                    String             @id @default(cuid())
+  name                  String
+  standardHours         Float              @default(40)
+  overtimePreference    OvertimePreference @default(NONE)
+  overtimeHoursAvailable Float             @default(0)
+  hrManager             String?
+  
+  user        User?
+  groups      ConsultantGroup[]
+  roles       ConsultantRole[]
+  allocations Allocation[]
+  ptoRequests PTORequest[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ConsultantGroup {
+  id           String    @id @default(cuid())
+  consultantId String
+  consultant   Consultant @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+  group        GroupType
+  
+  @@unique([consultantId, group])
+}
+
+model ConsultantRole {
+  id           String     @id @default(cuid())
+  consultantId String
+  consultant   Consultant @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+  level        RoleLevel
+  
+  @@unique([consultantId, level])
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  client      String
+  projectName String
+  timecode    String        @unique
+  type        ProjectType   @default(BILLABLE)
+  status      ProjectStatus @default(ACTIVE)
+  
+  allocations Allocation[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Allocation {
+  id           String              @id @default(cuid())
+  consultantId String
+  consultant   Consultant          @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+  projectId    String
+  project      Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  weekStart    DateTime            @db.Date // Always a Sunday
+  hours        Float
+  entryType    AllocationEntryType @default(ACTUAL)
+  notes        String?
+  
+  createdById String?
+  createdBy   User?   @relation("AllocationCreator", fields: [createdById], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([consultantId, projectId, weekStart, entryType])
+  @@index([consultantId])
+  @@index([projectId])
+  @@index([weekStart])
+}
+
+model PTORequest {
+  id           String    @id @default(cuid())
+  consultantId String
+  consultant   Consultant @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+  startDate    DateTime  @db.Date
+  endDate      DateTime  @db.Date
+  allDay       Boolean   @default(true)
+  startTime    String?   // Store as HH:mm string
+  endTime      String?   // Store as HH:mm string
+  status       PTOStatus @default(PENDING)
+  
+  approvedById String?
+  approvedBy   User?     @relation("PTOApprover", fields: [approvedById], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([consultantId])
+  @@index([status])
+}
