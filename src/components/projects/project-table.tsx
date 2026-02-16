@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -52,16 +51,20 @@ export function ProjectTable({ projects }: ProjectTableProps) {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [deletingProject, setDeletingProject] = useState<Project | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDelete = async () => {
     if (!deletingProject) return;
 
+    setIsDeleting(true);
     try {
       await deleteProject(deletingProject.id);
       setDeletingProject(null);
       setDeleteError(null);
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : "Failed to delete");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -151,10 +154,16 @@ export function ProjectTable({ projects }: ProjectTableProps) {
             </div>
           )}
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setDeleteError(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
-            </AlertDialogAction>
+            <AlertDialogCancel onClick={() => setDeleteError(null)} disabled={isDeleting}>
+              Cancel
+            </AlertDialogCancel>
+            <Button 
+              onClick={handleDelete} 
+              disabled={isDeleting}
+              variant="destructive"
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

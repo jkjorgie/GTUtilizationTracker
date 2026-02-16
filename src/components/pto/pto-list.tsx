@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -210,13 +209,14 @@ export function PTOList({ ptoRequests, userRole, currentConsultantId }: PTOListP
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
+            <Button 
               onClick={handleDelete} 
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={loading}
+              variant="destructive"
             >
-              Delete
-            </AlertDialogAction>
+              {loading ? "Deleting..." : "Delete"}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
