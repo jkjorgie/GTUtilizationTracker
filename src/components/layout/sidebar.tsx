@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   FolderKanban,
   Users,
+  UserCog,
   Calendar,
   Upload,
   BarChart3,
@@ -41,6 +42,12 @@ const navItems: NavItem[] = [
     label: "Consultants",
     href: "/consultants",
     icon: <Users className="h-5 w-5" />,
+    roles: ["ADMIN"],
+  },
+  {
+    label: "Users",
+    href: "/users",
+    icon: <UserCog className="h-5 w-5" />,
     roles: ["ADMIN"],
   },
   {

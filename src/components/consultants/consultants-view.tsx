@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useMemo } from "react";
+import { Consultant, ConsultantGroup, ConsultantRole, GroupType, RoleLevel } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,9 +11,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConsultantForm } from "./consultant-form";
+import { ConsultantTable } from "./consultant-table";
 import { Plus, Search } from "lucide-react";
-import { GroupType, RoleLevel } from "@prisma/client";
+
+type ConsultantWithRelations = Consultant & {
+  groups: ConsultantGroup[];
+  roles: ConsultantRole[];
+  user?: { email: string } | null;
+};
+
+interface ConsultantsViewProps {
+  consultants: ConsultantWithRelations[];
+}
 
 const groupOptions = [
   { value: GroupType.SA, label: "SA" },
@@ -31,33 +42,31 @@ const roleOptions = [
   { value: RoleLevel.LEAD, label: "Lead" },
 ];
 
-export function ConsultantsHeader() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+export function ConsultantsView({ consultants }: ConsultantsViewProps) {
   const [showForm, setShowForm] = useState(false);
-  const [search, setSearch] = useState(searchParams.get("search") || "");
+  const [search, setSearch] = useState("");
+  const [groupFilter, setGroupFilter] = useState<string>("all");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
 
-  const updateFilter = useCallback((key: string, value: string | null) => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (value && value !== "all") {
-      params.set(key, value);
-    } else {
-      params.delete(key);
-    }
-    router.push(`/consultants?${params.toString()}`);
-  }, [router, searchParams]);
-
-  // Debounced search - updates as user types
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const currentSearch = searchParams.get("search") || "";
-      if (search !== currentSearch) {
-        updateFilter("search", search || null);
+  // Client-side filtering - instant, no debounce needed
+  const filteredConsultants = useMemo(() => {
+    return consultants.filter((consultant) => {
+      // Group filter
+      if (groupFilter !== "all" && !consultant.groups.some(g => g.group === groupFilter)) {
+        return false;
       }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [search, searchParams, updateFilter]);
+      // Role filter
+      if (roleFilter !== "all" && !consultant.roles.some(r => r.level === roleFilter)) {
+        return false;
+      }
+      // Search filter
+      if (search) {
+        const searchLower = search.toLowerCase();
+        return consultant.name.toLowerCase().includes(searchLower);
+      }
+      return true;
+    });
+  }, [consultants, groupFilter, roleFilter, search]);
 
   return (
     <>
@@ -84,10 +93,7 @@ export function ConsultantsHeader() {
         </div>
 
         <div className="flex gap-2">
-          <Select
-            value={searchParams.get("group") || "all"}
-            onValueChange={(value) => updateFilter("group", value)}
-          >
+          <Select value={groupFilter} onValueChange={setGroupFilter}>
             <SelectTrigger className="w-[120px]">
               <SelectValue placeholder="Group" />
             </SelectTrigger>
@@ -101,10 +107,7 @@ export function ConsultantsHeader() {
             </SelectContent>
           </Select>
 
-          <Select
-            value={searchParams.get("role") || "all"}
-            onValueChange={(value) => updateFilter("role", value)}
-          >
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
             <SelectTrigger className="w-[120px]">
               <SelectValue placeholder="Role" />
             </SelectTrigger>
@@ -120,10 +123,16 @@ export function ConsultantsHeader() {
         </div>
       </div>
 
-      <ConsultantForm
-        open={showForm}
-        onOpenChange={setShowForm}
-      />
+      <Card>
+        <CardHeader>
+          <CardTitle>All Consultants ({filteredConsultants.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ConsultantTable consultants={filteredConsultants} />
+        </CardContent>
+      </Card>
+
+      <ConsultantForm open={showForm} onOpenChange={setShowForm} />
     </>
   );
 }

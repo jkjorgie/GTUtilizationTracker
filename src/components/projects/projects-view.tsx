@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useMemo } from "react";
+import { Project, ProjectType, ProjectStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,37 +11,44 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProjectForm } from "./project-form";
+import { ProjectTable } from "./project-table";
 import { Plus, Search } from "lucide-react";
-import { ProjectType, ProjectStatus } from "@prisma/client";
 
-export function ProjectsHeader() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+interface ProjectsViewProps {
+  projects: Project[];
+}
+
+export function ProjectsView({ projects }: ProjectsViewProps) {
   const [showForm, setShowForm] = useState(false);
-  const [search, setSearch] = useState(searchParams.get("search") || "");
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const updateFilter = useCallback((key: string, value: string | null) => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (value && value !== "all") {
-      params.set(key, value);
-    } else {
-      params.delete(key);
-    }
-    router.push(`/projects?${params.toString()}`);
-  }, [router, searchParams]);
-
-  // Debounced search - updates as user types
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const currentSearch = searchParams.get("search") || "";
-      if (search !== currentSearch) {
-        updateFilter("search", search || null);
+  // Client-side filtering - instant, no debounce needed
+  const filteredProjects = useMemo(() => {
+    return projects.filter((project) => {
+      // Type filter
+      if (typeFilter !== "all" && project.type !== typeFilter) {
+        return false;
       }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [search, searchParams, updateFilter]);
+      // Status filter
+      if (statusFilter !== "all" && project.status !== statusFilter) {
+        return false;
+      }
+      // Search filter
+      if (search) {
+        const searchLower = search.toLowerCase();
+        return (
+          project.client.toLowerCase().includes(searchLower) ||
+          project.projectName.toLowerCase().includes(searchLower) ||
+          project.timecode.toLowerCase().includes(searchLower)
+        );
+      }
+      return true;
+    });
+  }, [projects, typeFilter, statusFilter, search]);
 
   return (
     <>
@@ -68,10 +75,7 @@ export function ProjectsHeader() {
         </div>
 
         <div className="flex gap-2">
-          <Select
-            value={searchParams.get("type") || "all"}
-            onValueChange={(value) => updateFilter("type", value)}
-          >
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Type" />
             </SelectTrigger>
@@ -84,10 +88,7 @@ export function ProjectsHeader() {
             </SelectContent>
           </Select>
 
-          <Select
-            value={searchParams.get("status") || "all"}
-            onValueChange={(value) => updateFilter("status", value)}
-          >
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -100,10 +101,16 @@ export function ProjectsHeader() {
         </div>
       </div>
 
-      <ProjectForm
-        open={showForm}
-        onOpenChange={setShowForm}
-      />
+      <Card>
+        <CardHeader>
+          <CardTitle>All Projects ({filteredProjects.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ProjectTable projects={filteredProjects} />
+        </CardContent>
+      </Card>
+
+      <ProjectForm open={showForm} onOpenChange={setShowForm} />
     </>
   );
 }
