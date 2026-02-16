@@ -1,4 +1,6 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
 import { getProjects } from "@/app/actions/projects";
 import { ProjectTable } from "@/components/projects/project-table";
 import { ProjectsHeader } from "@/components/projects/projects-header";
@@ -25,6 +27,11 @@ async function ProjectsList({ searchParams }: { searchParams: ProjectsPageProps[
 }
 
 export default async function ProjectsPage({ searchParams }: ProjectsPageProps) {
+  const session = await auth();
+  if (!session || session.user.role !== "ADMIN") {
+    redirect("/");
+  }
+
   return (
     <div className="space-y-6">
       <ProjectsHeader />

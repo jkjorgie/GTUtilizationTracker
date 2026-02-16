@@ -1,4 +1,6 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
 import { getConsultants } from "@/app/actions/consultants";
 import { ConsultantTable } from "@/components/consultants/consultant-table";
 import { ConsultantsHeader } from "@/components/consultants/consultants-header";
@@ -25,6 +27,11 @@ async function ConsultantsList({ searchParams }: { searchParams: ConsultantsPage
 }
 
 export default async function ConsultantsPage({ searchParams }: ConsultantsPageProps) {
+  const session = await auth();
+  if (!session || session.user.role !== "ADMIN") {
+    redirect("/");
+  }
+
   return (
     <div className="space-y-6">
       <ConsultantsHeader />
