@@ -28,7 +28,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { createProject, updateProject } from "@/app/actions/projects";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const formSchema = z.object({
   client: z.string().min(1, "Client is required"),
@@ -53,13 +53,27 @@ export function ProjectForm({ project, open, onOpenChange }: ProjectFormProps) {
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      client: project?.client || "",
-      projectName: project?.projectName || "",
-      timecode: project?.timecode || "",
-      type: project?.type || ProjectType.BILLABLE,
-      status: project?.status || ProjectStatus.ACTIVE,
+      client: "",
+      projectName: "",
+      timecode: "",
+      type: ProjectType.BILLABLE,
+      status: ProjectStatus.ACTIVE,
     },
   });
+
+  // Reset form when project changes (for edit mode)
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        client: project?.client || "",
+        projectName: project?.projectName || "",
+        timecode: project?.timecode || "",
+        type: project?.type || ProjectType.BILLABLE,
+        status: project?.status || ProjectStatus.ACTIVE,
+      });
+      setError(null);
+    }
+  }, [project, open, form]);
 
   const onSubmit = async (data: FormData) => {
     setError(null);
@@ -148,7 +162,7 @@ export function ProjectForm({ project, open, onOpenChange }: ProjectFormProps) {
                     <FormLabel>Type</FormLabel>
                     <Select
                       onValueChange={field.onChange}
-                      defaultValue={field.value}
+                      value={field.value}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -183,7 +197,7 @@ export function ProjectForm({ project, open, onOpenChange }: ProjectFormProps) {
                     <FormLabel>Status</FormLabel>
                     <Select
                       onValueChange={field.onChange}
-                      defaultValue={field.value}
+                      value={field.value}
                     >
                       <FormControl>
                         <SelectTrigger>

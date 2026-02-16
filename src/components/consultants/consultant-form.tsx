@@ -30,7 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { createConsultant, updateConsultant } from "@/app/actions/consultants";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -78,15 +78,31 @@ export function ConsultantForm({ consultant, open, onOpenChange }: ConsultantFor
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: consultant?.name || "",
-      standardHours: consultant?.standardHours || 40,
-      overtimePreference: consultant?.overtimePreference || OvertimePreference.NONE,
-      overtimeHoursAvailable: consultant?.overtimeHoursAvailable || 0,
-      hrManager: consultant?.hrManager || "",
-      groups: consultant?.groups.map(g => g.group) || [],
-      roles: consultant?.roles.map(r => r.level) || [],
+      name: "",
+      standardHours: 40,
+      overtimePreference: OvertimePreference.NONE,
+      overtimeHoursAvailable: 0,
+      hrManager: "",
+      groups: [],
+      roles: [],
     },
   });
+
+  // Reset form when consultant changes (for edit mode)
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        name: consultant?.name || "",
+        standardHours: consultant?.standardHours || 40,
+        overtimePreference: consultant?.overtimePreference || OvertimePreference.NONE,
+        overtimeHoursAvailable: consultant?.overtimeHoursAvailable || 0,
+        hrManager: consultant?.hrManager || "",
+        groups: consultant?.groups.map(g => g.group) || [],
+        roles: consultant?.roles.map(r => r.level) || [],
+      });
+      setError(null);
+    }
+  }, [consultant, open, form]);
 
   const onSubmit = async (data: FormData) => {
     setError(null);
@@ -182,7 +198,7 @@ export function ConsultantForm({ consultant, open, onOpenChange }: ConsultantFor
                     <FormLabel>Overtime Preference</FormLabel>
                     <Select
                       onValueChange={field.onChange}
-                      defaultValue={field.value}
+                      value={field.value}
                     >
                       <FormControl>
                         <SelectTrigger>
