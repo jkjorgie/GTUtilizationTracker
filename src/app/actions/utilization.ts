@@ -4,8 +4,13 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { AllocationEntryType } from "@prisma/client";
-import { startOfWeek, format, parseISO } from "date-fns";
+import { startOfWeek, parseISO } from "date-fns";
 import { getWeeksInRange, getDefaultDateRange } from "@/lib/utils";
+
+// Helper to format dates consistently in UTC to avoid timezone issues
+function formatDateUTC(date: Date): string {
+  return date.toISOString().split("T")[0];
+}
 
 export interface UtilizationData {
   consultants: Array<{
@@ -46,7 +51,7 @@ export async function getUtilizationData(
   const end = endDate ? parseISO(endDate) : defaultRange.end;
 
   const weeks = getWeeksInRange(start, end);
-  const weekStrings = weeks.map((w) => format(w, "yyyy-MM-dd"));
+  const weekStrings = weeks.map((w) => formatDateUTC(w));
 
   // Get all consultants with their roles and groups
   const consultants = await prisma.consultant.findMany({
@@ -96,7 +101,7 @@ export async function getUtilizationData(
   }
 
   for (const allocation of allocations) {
-    const weekKey = format(allocation.weekStart, "yyyy-MM-dd");
+    const weekKey = formatDateUTC(allocation.weekStart);
     const consultantId = allocation.consultantId;
 
     if (allocationMap[consultantId] && allocationMap[consultantId][weekKey]) {
@@ -154,6 +159,17 @@ export async function updateAllocation(
 
   const weekDate = startOfWeek(parseISO(weekStart), { weekStartsOn: 0 });
 
+  // Verify user exists in database (handles stale sessions after db reset)
+  let createdById: string | null = null;
+  try {
+    const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+    if (user) {
+      createdById = user.id;
+    }
+  } catch {
+    // User doesn't exist, proceed without createdById
+  }
+
   const allocation = await prisma.allocation.upsert({
     where: {
       consultantId_projectId_weekStart_entryType: {
@@ -174,7 +190,7 @@ export async function updateAllocation(
       hours,
       entryType,
       notes,
-      createdById: session.user.id,
+      createdById,
     },
   });
 
