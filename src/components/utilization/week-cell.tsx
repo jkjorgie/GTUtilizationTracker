@@ -1,31 +1,15 @@
 "use client";
 
-import { useState, useCallback, useTransition } from "react";
-import { format, parseISO } from "date-fns";
+import { useState, useMemo } from "react";
+import { format, parseISO, startOfWeek, isBefore, isAfter } from "date-fns";
 import { AllocationEntryType } from "@prisma/client";
 import { cn, getUtilizationColor } from "@/lib/utils";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { updateAllocation } from "@/app/actions/utilization";
-import { Loader2, Plus } from "lucide-react";
+import { WeekCellEditor } from "./week-cell-editor";
 import { ViewMode } from "./grid-filters";
 
 interface AllocationDetail {
@@ -41,10 +25,9 @@ interface AllocationDetail {
 
 interface WeekCellProps {
   consultantId: string;
+  consultantName: string;
   week: string;
-  value: number;
   details: AllocationDetail[];
-  status: "under" | "normal" | "over";
   standardHours: number;
   editable: boolean;
   viewMode: ViewMode;
@@ -53,98 +36,153 @@ interface WeekCellProps {
 
 export function WeekCell({
   consultantId,
+  consultantName,
   week,
-  value,
   details,
-  status,
   standardHours,
   editable,
   viewMode,
   projects,
 }: WeekCellProps) {
-  const [isPending, startTransition] = useTransition();
   const [isEditing, setIsEditing] = useState(false);
-  const [editProjectId, setEditProjectId] = useState<string>("");
-  const [editHours, setEditHours] = useState<number>(8);
-  const [error, setError] = useState<string | null>(null);
 
-  const handleSave = useCallback(() => {
-    if (!editProjectId || editHours <= 0) return;
+  // Determine if this week is in the past, current, or future
+  const weekDate = parseISO(week);
+  const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 0 });
+  const isPast = isBefore(weekDate, currentWeekStart);
+  const isFuture = isAfter(weekDate, currentWeekStart);
 
-    setError(null);
-    startTransition(async () => {
-      try {
-        await updateAllocation(
-          consultantId,
-          week,
-          editProjectId,
-          editHours,
-          viewMode === "projected" ? AllocationEntryType.PROJECTED : AllocationEntryType.ACTUAL
-        );
-        setIsEditing(false);
-        setEditProjectId("");
-        setEditHours(8);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to save");
+  // Calculate values based on view mode and time
+  const { displayValue, status, tooltipDetails } = useMemo(() => {
+    const actualDetails = details.filter(d => d.entryType === AllocationEntryType.ACTUAL);
+    const projectedDetails = details.filter(d => d.entryType === AllocationEntryType.PROJECTED);
+    
+    const actualTotal = actualDetails.reduce((sum, d) => sum + d.hours, 0);
+    const projectedTotal = projectedDetails.reduce((sum, d) => sum + d.hours, 0);
+    
+    let value: number;
+    let relevantDetails: AllocationDetail[];
+    
+    if (viewMode === "actual") {
+      // For future weeks, don't show actuals at all
+      if (isFuture) {
+        value = 0;
+        relevantDetails = [];
+      } else {
+        // For past/current weeks, show actuals (default to projected if no actual)
+        value = actualTotal > 0 ? actualTotal : (isPast ? projectedTotal : actualTotal);
+        relevantDetails = actualTotal > 0 ? actualDetails : (isPast ? projectedDetails : actualDetails);
       }
-    });
-  }, [consultantId, week, editProjectId, editHours, viewMode]);
+    } else if (viewMode === "projected") {
+      value = projectedTotal;
+      relevantDetails = projectedDetails;
+    } else {
+      // Difference view: actual - projected (only for past/current)
+      if (isFuture) {
+        value = 0;
+        relevantDetails = [];
+      } else {
+        const effectiveActual = actualTotal > 0 ? actualTotal : projectedTotal;
+        value = effectiveActual - projectedTotal;
+        relevantDetails = [...actualDetails, ...projectedDetails];
+      }
+    }
+
+    // Calculate status based on standard hours
+    const ratio = standardHours > 0 ? Math.abs(value) / standardHours : 0;
+    let status: "under" | "normal" | "over" = "normal";
+    
+    if (viewMode === "difference") {
+      // For difference, check if significantly off
+      if (Math.abs(value) > standardHours * 0.1) {
+        status = value > 0 ? "over" : "under";
+      }
+    } else {
+      if (ratio < 0.9) status = "under";
+      else if (ratio > 1.1) status = "over";
+    }
+
+    return {
+      displayValue: value,
+      status,
+      tooltipDetails: relevantDetails,
+    };
+  }, [details, viewMode, standardHours, isPast, isFuture]);
 
   const colorClass = getUtilizationColor(status);
-  const utilPercent = standardHours > 0 ? Math.round((value / standardHours) * 100) : 0;
+  const utilPercent = standardHours > 0 ? Math.round((Math.abs(displayValue) / standardHours) * 100) : 0;
 
-  // Filter details by current view mode
-  const relevantDetails = details.filter((d) => {
-    if (viewMode === "actual") return d.entryType === AllocationEntryType.ACTUAL;
-    if (viewMode === "projected") return d.entryType === AllocationEntryType.PROJECTED;
-    return true;
-  });
+  // Determine display text
+  const displayText = viewMode === "difference" && displayValue !== 0
+    ? (displayValue > 0 ? `+${displayValue}` : displayValue.toString())
+    : displayValue > 0
+    ? displayValue.toString()
+    : "-";
+
+  // For future weeks in actual mode, show placeholder
+  const showPlaceholder = viewMode === "actual" && isFuture;
 
   return (
-    <Popover open={isEditing} onOpenChange={setIsEditing}>
+    <>
       <Tooltip>
         <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <button
-              className={cn(
-                "w-16 min-w-16 h-12 border-r flex items-center justify-center text-sm font-medium transition-colors",
-                value > 0 && colorClass,
-                editable && "hover:ring-2 hover:ring-primary hover:ring-inset cursor-pointer",
-                !editable && "cursor-default"
-              )}
-              disabled={!editable}
-            >
-              {isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : value > 0 ? (
-                <span>{value}</span>
-              ) : (
-                <span className="text-muted-foreground">-</span>
-              )}
-            </button>
-          </PopoverTrigger>
+          <button
+            className={cn(
+              "w-16 min-w-16 h-12 border-r flex items-center justify-center text-sm font-medium transition-colors",
+              !showPlaceholder && displayValue !== 0 && colorClass,
+              editable && "hover:ring-2 hover:ring-primary hover:ring-inset cursor-pointer",
+              !editable && "cursor-default",
+              showPlaceholder && "bg-muted/20 text-muted-foreground"
+            )}
+            disabled={!editable}
+            onClick={() => editable && setIsEditing(true)}
+          >
+            {showPlaceholder ? (
+              <span className="text-xs text-muted-foreground">N/A</span>
+            ) : (
+              <span>{displayText}</span>
+            )}
+          </button>
         </TooltipTrigger>
         <TooltipContent side="top" className="max-w-xs">
           <div className="space-y-2">
             <div className="font-medium">
-              Week of {format(parseISO(week), "MMM d, yyyy")}
+              Week of {format(weekDate, "MMM d, yyyy")}
+              {isPast && <span className="text-muted-foreground ml-1">(Past)</span>}
+              {isFuture && <span className="text-muted-foreground ml-1">(Future)</span>}
             </div>
-            <div className="text-sm">
-              {value} / {standardHours} hours ({utilPercent}%)
-            </div>
-            {relevantDetails.length > 0 && (
-              <div className="border-t pt-2 space-y-1">
-                {relevantDetails.map((detail, idx) => (
-                  <div key={idx} className="text-sm">
-                    <span className="font-medium">{detail.timecode}</span>: {detail.hours}h
-                    {detail.notes && (
-                      <span className="text-muted-foreground"> - {detail.notes}</span>
-                    )}
+            {!showPlaceholder && (
+              <>
+                <div className="text-sm">
+                  {viewMode === "difference" ? (
+                    `${displayValue > 0 ? "+" : ""}${displayValue} hours variance`
+                  ) : (
+                    `${Math.abs(displayValue)} / ${standardHours} hours (${utilPercent}%)`
+                  )}
+                </div>
+                {tooltipDetails.length > 0 && (
+                  <div className="border-t pt-2 space-y-1">
+                    {tooltipDetails.map((detail, idx) => (
+                      <div key={idx} className="text-sm">
+                        <span className="font-medium">{detail.timecode}</span>: {detail.hours}h
+                        <span className="text-muted-foreground text-xs ml-1">
+                          ({detail.entryType === AllocationEntryType.ACTUAL ? "A" : "P"})
+                        </span>
+                        {detail.notes && (
+                          <span className="text-muted-foreground"> - {detail.notes}</span>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
+              </>
+            )}
+            {showPlaceholder && (
+              <div className="text-sm text-muted-foreground">
+                Actuals not available for future weeks
               </div>
             )}
-            {relevantDetails.length === 0 && value === 0 && (
+            {tooltipDetails.length === 0 && !showPlaceholder && displayValue === 0 && (
               <div className="text-sm text-muted-foreground">No allocations</div>
             )}
           </div>
@@ -152,85 +190,17 @@ export function WeekCell({
       </Tooltip>
 
       {editable && (
-        <PopoverContent className="w-80" align="start">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <h4 className="font-medium">Add Allocation</h4>
-              <p className="text-sm text-muted-foreground">
-                Week of {format(parseISO(week), "MMM d, yyyy")}
-              </p>
-            </div>
-
-            {error && (
-              <div className="p-2 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded">
-                {error}
-              </div>
-            )}
-
-            {/* Existing allocations */}
-            {relevantDetails.length > 0 && (
-              <div className="space-y-2 pb-2 border-b">
-                <Label className="text-xs text-muted-foreground">Current Allocations</Label>
-                {relevantDetails.map((detail, idx) => (
-                  <div key={idx} className="flex justify-between text-sm">
-                    <span>{detail.timecode}</span>
-                    <span className="font-medium">{detail.hours}h</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="space-y-3">
-              <div className="space-y-2">
-                <Label>Project</Label>
-                <Select value={editProjectId} onValueChange={setEditProjectId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.timecode} - {project.projectName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Hours</Label>
-                <Input
-                  type="number"
-                  min="0.5"
-                  max="80"
-                  step="0.5"
-                  value={editHours}
-                  onChange={(e) => setEditHours(parseFloat(e.target.value))}
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsEditing(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleSave}
-                disabled={!editProjectId || editHours <= 0 || isPending}
-              >
-                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                <Plus className="mr-2 h-4 w-4" />
-                Add
-              </Button>
-            </div>
-          </div>
-        </PopoverContent>
+        <WeekCellEditor
+          open={isEditing}
+          onOpenChange={setIsEditing}
+          consultantId={consultantId}
+          consultantName={consultantName}
+          week={week}
+          standardHours={standardHours}
+          details={details}
+          projects={projects}
+        />
       )}
-    </Popover>
+    </>
   );
 }

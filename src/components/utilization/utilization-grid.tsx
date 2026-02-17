@@ -1,31 +1,61 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
-import { format, parseISO } from "date-fns";
-import { UtilizationData } from "@/app/actions/utilization";
-import { cn, getUtilizationStatus, getUtilizationColor, groupWeeksByMonth } from "@/lib/utils";
+import { useState, useMemo, useCallback, useTransition } from "react";
+import { format, parseISO, subWeeks, addWeeks, startOfWeek } from "date-fns";
+import { UtilizationData, getUtilizationData } from "@/app/actions/utilization";
+import { getUtilizationStatus, groupWeeksByMonth } from "@/lib/utils";
 import { WeekCell } from "./week-cell";
 import { GridFilters, ViewMode } from "./grid-filters";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Loader2 } from "lucide-react";
 
 interface UtilizationGridProps {
-  data: UtilizationData;
+  initialData: UtilizationData;
   projects: Array<{ id: string; projectName: string; timecode: string }>;
   userRole: string;
   currentConsultantId?: string | null;
 }
 
 export function UtilizationGrid({ 
-  data, 
+  initialData, 
   projects, 
   userRole, 
   currentConsultantId 
 }: UtilizationGridProps) {
+  const [isPending, startTransition] = useTransition();
+  const [data, setData] = useState<UtilizationData>(initialData);
+  
+  // Date range state
+  const today = new Date();
+  const defaultStart = subWeeks(startOfWeek(today, { weekStartsOn: 0 }), 4);
+  const defaultEnd = addWeeks(startOfWeek(today, { weekStartsOn: 0 }), 8);
+  
+  const [startDate, setStartDate] = useState<Date>(defaultStart);
+  const [endDate, setEndDate] = useState<Date>(defaultEnd);
+  
   const [viewMode, setViewMode] = useState<ViewMode>("actual");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [groupFilter, setGroupFilter] = useState<string>("all");
   const [searchFilter, setSearchFilter] = useState<string>("");
+
+  // Fetch data when date range changes
+  const handleDateRangeChange = useCallback((newStart: Date, newEnd: Date) => {
+    setStartDate(newStart);
+    setEndDate(newEnd);
+    
+    startTransition(async () => {
+      try {
+        const newData = await getUtilizationData(
+          format(newStart, "yyyy-MM-dd"),
+          format(newEnd, "yyyy-MM-dd")
+        );
+        setData(newData);
+      } catch (error) {
+        console.error("Failed to fetch utilization data:", error);
+      }
+    });
+  }, []);
 
   // Group weeks by month for the header
   const weekDates = useMemo(
@@ -56,23 +86,6 @@ export function UtilizationGrid({
       return true;
     });
   }, [data.consultants, roleFilter, groupFilter, searchFilter]);
-
-  const getCellValue = useCallback(
-    (consultantId: string, week: string) => {
-      const cell = data.allocations[consultantId]?.[week];
-      if (!cell) return 0;
-
-      switch (viewMode) {
-        case "actual":
-          return cell.actual;
-        case "projected":
-          return cell.projected;
-        case "difference":
-          return cell.actual - cell.projected;
-      }
-    },
-    [data.allocations, viewMode]
-  );
 
   const getCellDetails = useCallback(
     (consultantId: string, week: string) => {
@@ -116,17 +129,26 @@ export function UtilizationGrid({
         onSearchFilterChange={setSearchFilter}
         roles={allRoles}
         groups={allGroups}
+        startDate={startDate}
+        endDate={endDate}
+        onDateRangeChange={handleDateRangeChange}
       />
 
-      <div className="border rounded-lg overflow-hidden">
+      <div className="border rounded-lg overflow-hidden relative">
+        {isPending && (
+          <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-50">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        )}
+        
         <ScrollArea className="w-full">
           <div className="min-w-max">
             {/* Header Row 1: Months */}
             <div className="flex border-b bg-muted/50">
-              <div className="w-24 min-w-24 p-2 border-r font-medium text-sm sticky left-0 bg-muted/50 z-10">
+              <div className="w-24 min-w-24 p-2 border-r font-medium text-sm sticky left-0 bg-muted/50 z-20">
                 Role
               </div>
-              <div className="w-40 min-w-40 p-2 border-r font-medium text-sm sticky left-24 bg-muted/50 z-10">
+              <div className="w-40 min-w-40 p-2 border-r font-medium text-sm sticky left-24 bg-muted/50 z-20">
                 Name
               </div>
               {Array.from(monthGroups.entries()).map(([monthKey, weeks]) => (
@@ -142,8 +164,8 @@ export function UtilizationGrid({
 
             {/* Header Row 2: Week dates */}
             <div className="flex border-b bg-muted/30">
-              <div className="w-24 min-w-24 p-2 border-r sticky left-0 bg-muted/30 z-10" />
-              <div className="w-40 min-w-40 p-2 border-r sticky left-24 bg-muted/30 z-10" />
+              <div className="w-24 min-w-24 p-2 border-r sticky left-0 bg-muted/30 z-20" />
+              <div className="w-40 min-w-40 p-2 border-r sticky left-24 bg-muted/30 z-20" />
               {data.weeks.map((week) => (
                 <div
                   key={week}
@@ -162,18 +184,18 @@ export function UtilizationGrid({
             ) : (
               filteredConsultants.map((consultant) => (
                 <div key={consultant.id} className="flex border-b hover:bg-muted/20">
-                  {/* Role column */}
+                  {/* Role column - sticky */}
                   <div className="w-24 min-w-24 p-2 border-r sticky left-0 bg-background z-10">
                     <div className="flex flex-wrap gap-1">
                       {consultant.roles.slice(0, 2).map((role) => (
                         <Badge key={role} variant="secondary" className="text-xs">
-                          {role.replace("LVL", "L")}
+                          {role}
                         </Badge>
                       ))}
                     </div>
                   </div>
 
-                  {/* Name column */}
+                  {/* Name column - sticky */}
                   <div className="w-40 min-w-40 p-2 border-r sticky left-24 bg-background z-10">
                     <span className="font-medium text-sm truncate block">
                       {consultant.name}
@@ -189,19 +211,16 @@ export function UtilizationGrid({
 
                   {/* Week cells */}
                   {data.weeks.map((week) => {
-                    const value = getCellValue(consultant.id, week);
                     const details = getCellDetails(consultant.id, week);
-                    const status = getUtilizationStatus(value, consultant.standardHours);
                     const editable = canEdit(consultant.id);
 
                     return (
                       <WeekCell
                         key={week}
                         consultantId={consultant.id}
+                        consultantName={consultant.name}
                         week={week}
-                        value={value}
                         details={details}
-                        status={status}
                         standardHours={consultant.standardHours}
                         editable={editable}
                         viewMode={viewMode}

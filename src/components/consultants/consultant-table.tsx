@@ -115,7 +115,7 @@ export function ConsultantTable({ consultants }: ConsultantTableProps) {
                     <div className="flex flex-wrap gap-1">
                       {consultant.roles.map((r) => (
                         <Badge key={r.id} variant="secondary" className="text-xs">
-                          {r.level.replace("LVL", "L")}
+                          {r.level}
                         </Badge>
                       ))}
                     </div>

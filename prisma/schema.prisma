@@ -16,19 +16,29 @@ enum UserRole {
 }
 
 enum GroupType {
-  SA
-  BA
   TECH
-  UX
-  AI
+  FABA
+  PEM
+  SA
 }
 
 enum RoleLevel {
-  LVL2
-  LVL3
-  LVL4
-  LVL5
-  LEAD
+  T1
+  T2
+  T3
+  STA
+  PTA
+  LTA
+  FA1
+  FA2
+  FA3
+  SBA
+  PBA
+  LBA
+  EM1
+  EM2
+  EM3
+  PM
 }
 
 enum OvertimePreference {

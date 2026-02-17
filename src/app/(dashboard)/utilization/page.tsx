@@ -17,7 +17,7 @@ async function UtilizationContent() {
 
   return (
     <UtilizationGrid
-      data={data}
+      initialData={data}
       projects={projects}
       userRole={session.user.role}
       currentConsultantId={session.user.consultantId}

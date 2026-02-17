@@ -56,19 +56,29 @@ interface ConsultantFormProps {
 }
 
 const groupOptions = [
-  { value: GroupType.SA, label: "Solution Architect (SA)" },
-  { value: GroupType.BA, label: "Business Analyst (BA)" },
-  { value: GroupType.TECH, label: "Technical (Tech)" },
-  { value: GroupType.UX, label: "User Experience (UX)" },
-  { value: GroupType.AI, label: "AI/ML (AI)" },
+  { value: GroupType.TECH, label: "Tech" },
+  { value: GroupType.FABA, label: "FA/BA" },
+  { value: GroupType.PEM, label: "PEM" },
+  { value: GroupType.SA, label: "SA" },
 ];
 
 const roleOptions = [
-  { value: RoleLevel.LVL2, label: "Level 2" },
-  { value: RoleLevel.LVL3, label: "Level 3" },
-  { value: RoleLevel.LVL4, label: "Level 4" },
-  { value: RoleLevel.LVL5, label: "Level 5" },
-  { value: RoleLevel.LEAD, label: "Lead" },
+  { value: RoleLevel.T1, label: "T1" },
+  { value: RoleLevel.T2, label: "T2" },
+  { value: RoleLevel.T3, label: "T3" },
+  { value: RoleLevel.STA, label: "STA" },
+  { value: RoleLevel.PTA, label: "PTA" },
+  { value: RoleLevel.LTA, label: "LTA" },
+  { value: RoleLevel.FA1, label: "FA1" },
+  { value: RoleLevel.FA2, label: "FA2" },
+  { value: RoleLevel.FA3, label: "FA3" },
+  { value: RoleLevel.SBA, label: "SBA" },
+  { value: RoleLevel.PBA, label: "PBA" },
+  { value: RoleLevel.LBA, label: "LBA" },
+  { value: RoleLevel.EM1, label: "EM1" },
+  { value: RoleLevel.EM2, label: "EM2" },
+  { value: RoleLevel.EM3, label: "EM3" },
+  { value: RoleLevel.PM, label: "PM" },
 ];
 
 export function ConsultantForm({ consultant, open, onOpenChange }: ConsultantFormProps) {

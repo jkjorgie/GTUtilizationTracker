@@ -111,10 +111,10 @@ async function main() {
         overtimeHoursAvailable: 10,
         hrManager: "Sarah Johnson",
         groups: {
-          create: [{ group: GroupType.TECH }, { group: GroupType.AI }],
+          create: [{ group: GroupType.TECH }],
         },
         roles: {
-          create: [{ level: RoleLevel.LVL4 }],
+          create: [{ level: RoleLevel.STA }],
         },
       },
     }),
@@ -129,7 +129,7 @@ async function main() {
           create: [{ group: GroupType.SA }],
         },
         roles: {
-          create: [{ level: RoleLevel.LVL3 }],
+          create: [{ level: RoleLevel.T2 }],
         },
       },
     }),
@@ -141,10 +141,10 @@ async function main() {
         overtimeHoursAvailable: 0,
         hrManager: "Mike Wilson",
         groups: {
-          create: [{ group: GroupType.UX }],
+          create: [{ group: GroupType.FABA }],
         },
         roles: {
-          create: [{ level: RoleLevel.LEAD }],
+          create: [{ level: RoleLevel.LBA }],
         },
       },
     }),
@@ -156,10 +156,10 @@ async function main() {
         overtimeHoursAvailable: 5,
         hrManager: "Mike Wilson",
         groups: {
-          create: [{ group: GroupType.BA }, { group: GroupType.SA }],
+          create: [{ group: GroupType.FABA }, { group: GroupType.SA }],
         },
         roles: {
-          create: [{ level: RoleLevel.LVL5 }],
+          create: [{ level: RoleLevel.PBA }],
         },
       },
     }),
@@ -174,7 +174,7 @@ async function main() {
           create: [{ group: GroupType.TECH }],
         },
         roles: {
-          create: [{ level: RoleLevel.LVL2 }],
+          create: [{ level: RoleLevel.T1 }],
         },
       },
     }),
@@ -186,10 +186,10 @@ async function main() {
         overtimeHoursAvailable: 15,
         hrManager: "Mike Wilson",
         groups: {
-          create: [{ group: GroupType.AI }, { group: GroupType.TECH }],
+          create: [{ group: GroupType.PEM }],
         },
         roles: {
-          create: [{ level: RoleLevel.LVL4 }, { level: RoleLevel.LEAD }],
+          create: [{ level: RoleLevel.PM }, { level: RoleLevel.EM2 }],
         },
       },
     }),
