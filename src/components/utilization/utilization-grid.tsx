@@ -8,7 +8,6 @@ import { groupWeeksByMonth, getFirstFullWeekOfMonth } from "@/lib/utils";
 import { WeekCell, ProjectWeekCell } from "./week-cell";
 import { GridFilters } from "./grid-filters";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Loader2, ChevronDown, ChevronRight } from "lucide-react";
 
 interface UtilizationGridProps {
@@ -227,14 +226,13 @@ export function UtilizationGrid({
         onProjectFilterChange={setProjectFilter}
       />
 
-      <div className="border rounded-lg overflow-hidden relative">
+      <div className="border rounded-lg overflow-x-auto relative">
         {isPending && (
           <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-50">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         )}
         
-        <ScrollArea className="w-full">
           <div className="min-w-max">
             {/* Header Row 1: Months */}
             <div className="flex border-b bg-muted/50">
@@ -420,8 +418,7 @@ export function UtilizationGrid({
               })
             )}
           </div>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
+        
       </div>
 
       <div className="flex items-center gap-4 text-sm text-muted-foreground">
