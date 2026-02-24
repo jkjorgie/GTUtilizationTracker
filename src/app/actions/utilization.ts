@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { AllocationEntryType } from "@prisma/client";
+import { AllocationEntryType, ProjectStatus } from "@prisma/client";
 import { startOfWeek, parseISO } from "date-fns";
 import { getWeeksInRange, getDefaultDateRange } from "@/lib/utils";
 
@@ -35,6 +35,7 @@ export interface UtilizationData {
       updatedAt: Date;
     }>;
   }>>;
+  consultantProjects: Record<string, Array<{ projectId: string; projectName: string; timecode: string }>>;
 }
 
 export async function getUtilizationData(
@@ -126,6 +127,41 @@ export async function getUtilizationData(
     }
   }
 
+  // Get all distinct consultant-project pairs for active projects (across all time)
+  const consultantProjectAssocs = await prisma.allocation.findMany({
+    where: {
+      project: {
+        status: ProjectStatus.ACTIVE,
+      },
+    },
+    select: {
+      consultantId: true,
+      project: {
+        select: {
+          id: true,
+          projectName: true,
+          timecode: true,
+        },
+      },
+    },
+    distinct: ['consultantId', 'projectId'],
+  });
+
+  const consultantProjectsMap: Record<string, Array<{ projectId: string; projectName: string; timecode: string }>> = {};
+  for (const assoc of consultantProjectAssocs) {
+    if (!consultantProjectsMap[assoc.consultantId]) {
+      consultantProjectsMap[assoc.consultantId] = [];
+    }
+    consultantProjectsMap[assoc.consultantId].push({
+      projectId: assoc.project.id,
+      projectName: assoc.project.projectName,
+      timecode: assoc.project.timecode,
+    });
+  }
+  for (const id of Object.keys(consultantProjectsMap)) {
+    consultantProjectsMap[id].sort((a, b) => a.timecode.localeCompare(b.timecode));
+  }
+
   return {
     consultants: consultants.map((c) => ({
       id: c.id,
@@ -136,6 +172,7 @@ export async function getUtilizationData(
     })),
     weeks: weekStrings,
     allocations: allocationMap,
+    consultantProjects: consultantProjectsMap,
   };
 }
 

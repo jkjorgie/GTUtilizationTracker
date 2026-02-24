@@ -9,6 +9,8 @@ import {
   subWeeks,
   parseISO,
   isValid,
+  startOfMonth,
+  isBefore,
 } from "date-fns";
 
 export function cn(...inputs: ClassValue[]) {
@@ -69,14 +71,23 @@ export function parseDateISO(dateString: string): Date | null {
 }
 
 /**
- * Get the default date range for utilization view (current date +/- 4 weeks)
+ * Get the first Sunday on or after the 1st of the current month
+ */
+export function getFirstFullWeekOfMonth(date: Date = new Date()): Date {
+  const monthStart = startOfMonth(date);
+  const weekOfMonthStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+  return isBefore(weekOfMonthStart, monthStart)
+    ? addWeeks(weekOfMonthStart, 1)
+    : weekOfMonthStart;
+}
+
+/**
+ * Get the default date range for utilization view
+ * (first full week of current month, 13 weeks / ~3 months out)
  */
 export function getDefaultDateRange(): { start: Date; end: Date } {
-  const today = new Date();
-  return {
-    start: subWeeks(getWeekStart(today), 4),
-    end: addWeeks(getWeekEnd(today), 8),
-  };
+  const start = getFirstFullWeekOfMonth();
+  return { start, end: addWeeks(start, 13) };
 }
 
 /**

@@ -44,6 +44,7 @@ interface WeekCellEditorProps {
   standardHours: number;
   details: AllocationDetail[];
   projects: Array<{ id: string; projectName: string; timecode: string }>;
+  onSave?: (allocations: Array<{ projectId: string; projectedHours: number; actualHours: number }>) => void;
 }
 
 export function WeekCellEditor({
@@ -55,6 +56,7 @@ export function WeekCellEditor({
   standardHours,
   details,
   projects,
+  onSave,
 }: WeekCellEditorProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -212,12 +214,17 @@ export function WeekCellEditor({
           }
         }
         
+        onSave?.(editedAllocations.map(a => ({
+          projectId: a.projectId,
+          projectedHours: a.projectedHours,
+          actualHours: a.actualHours,
+        })));
         onOpenChange(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to save allocations");
       }
     });
-  }, [consultantId, week, details, editedAllocations, isFuture, onOpenChange]);
+  }, [consultantId, week, details, editedAllocations, isFuture, onOpenChange, onSave]);
 
   // Calculate totals
   const totalActual = editedAllocations.reduce((sum, a) => sum + a.actualHours, 0);

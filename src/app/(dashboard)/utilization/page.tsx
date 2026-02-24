@@ -50,7 +50,7 @@ export default async function UtilizationPage() {
         <CardHeader>
           <CardTitle>Utilization Grid</CardTitle>
           <CardDescription>
-            Click on a cell to view details or add allocations. Toggle between actuals, projected, and difference views.
+            Click on a cell to edit allocations. Expand consultants to see project breakdowns. Past weeks show projected and actual hours in a split cell.
           </CardDescription>
         </CardHeader>
         <CardContent>

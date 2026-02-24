@@ -12,6 +12,7 @@ import {
   Calendar,
   Upload,
   BarChart3,
+  Shield,
 } from "lucide-react";
 
 interface NavItem {
@@ -48,6 +49,12 @@ const navItems: NavItem[] = [
     label: "Users",
     href: "/users",
     icon: <UserCog className="h-5 w-5" />,
+    roles: ["ADMIN"],
+  },
+  {
+    label: "Roles",
+    href: "/roles",
+    icon: <Shield className="h-5 w-5" />,
     roles: ["ADMIN"],
   },
   {
