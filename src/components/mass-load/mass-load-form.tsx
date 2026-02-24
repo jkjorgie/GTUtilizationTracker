@@ -7,6 +7,8 @@ import { z } from "zod";
 import { format } from "date-fns";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { AllocationEntryType } from "@prisma/client";
+
+const ENTRY_TYPE = AllocationEntryType.PROJECTED;
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Calendar } from "@/components/ui/calendar";
@@ -84,7 +86,7 @@ export function MassLoadForm({ consultants, projects }: MassLoadFormProps) {
       consultantIds: [],
       projectId: "",
       hours: 8,
-      entryType: AllocationEntryType.ACTUAL,
+      entryType: ENTRY_TYPE,
       notes: "",
     },
   });
@@ -162,9 +164,9 @@ export function MassLoadForm({ consultants, projects }: MassLoadFormProps) {
     <div className="grid gap-6 lg:grid-cols-2">
       <Card>
         <CardHeader>
-          <CardTitle>Mass Load Allocations</CardTitle>
+          <CardTitle>Load Projected Hours</CardTitle>
           <CardDescription>
-            Quickly assign hours to multiple consultants at once. Use for holidays, company events, or bulk assignments.
+            Assign projected hours to multiple consultants at once across a date range.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -343,52 +345,24 @@ export function MassLoadForm({ consultants, projects }: MassLoadFormProps) {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="hours"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Hours per Week</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.5"
-                          {...field}
-                          onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="entryType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Entry Type</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value={AllocationEntryType.ACTUAL}>
-                            Actual
-                          </SelectItem>
-                          <SelectItem value={AllocationEntryType.PROJECTED}>
-                            Projected
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              <FormField
+                control={form.control}
+                name="hours"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Projected Hours per Week</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.5"
+                        {...field}
+                        onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <FormField
                 control={form.control}

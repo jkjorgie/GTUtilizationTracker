@@ -13,6 +13,7 @@ import {
   Upload,
   BarChart3,
   Shield,
+  FileUp,
 } from "lucide-react";
 
 interface NavItem {
@@ -32,6 +33,23 @@ const navItems: NavItem[] = [
     label: "Utilization",
     href: "/utilization",
     icon: <BarChart3 className="h-5 w-5" />,
+  },
+  {
+    label: "PTO Requests",
+    href: "/pto",
+    icon: <Calendar className="h-5 w-5" />,
+  },
+  {
+    label: "Actual Hours Upload",
+    href: "/actuals-upload",
+    icon: <FileUp className="h-5 w-5" />,
+    roles: ["ADMIN", "MANAGER"],
+  },
+  {
+    label: "Projected Hours Load",
+    href: "/mass-load",
+    icon: <Upload className="h-5 w-5" />,
+    roles: ["ADMIN", "MANAGER"],
   },
   {
     label: "Projects",
@@ -56,17 +74,6 @@ const navItems: NavItem[] = [
     href: "/roles",
     icon: <Shield className="h-5 w-5" />,
     roles: ["ADMIN"],
-  },
-  {
-    label: "PTO Requests",
-    href: "/pto",
-    icon: <Calendar className="h-5 w-5" />,
-  },
-  {
-    label: "Mass Load",
-    href: "/mass-load",
-    icon: <Upload className="h-5 w-5" />,
-    roles: ["ADMIN", "MANAGER"],
   },
 ];
 

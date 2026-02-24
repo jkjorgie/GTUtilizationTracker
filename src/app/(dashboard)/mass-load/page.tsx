@@ -19,9 +19,9 @@ export default async function MassLoadPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Mass Load</h1>
+        <h1 className="text-3xl font-bold">Projected Hours Load</h1>
         <p className="text-muted-foreground">
-          Bulk assign hours to multiple consultants for holidays, events, or company-wide allocations
+          Assign projected hours to multiple consultants across a date range
         </p>
       </div>
 
