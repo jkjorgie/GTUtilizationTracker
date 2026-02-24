@@ -151,22 +151,12 @@ export async function deleteConsultant(id: string) {
     throw new Error("Unauthorized");
   }
 
-  // Check if consultant has any allocations
-  const allocations = await prisma.allocation.count({
-    where: { consultantId: id },
-  });
-
-  if (allocations > 0) {
-    throw new Error(
-      "Cannot delete consultant with existing allocations."
-    );
-  }
-
   await prisma.consultant.delete({
     where: { id },
   });
 
   revalidatePath("/consultants");
+  revalidatePath("/utilization");
 }
 
 export async function getAllConsultants() {

@@ -22,8 +22,15 @@ type ConsultantWithRelations = Consultant & {
   user?: { email: string } | null;
 };
 
+export type UserOption = {
+  id: string;
+  email: string;
+  consultant: { id: string; name: string } | null;
+};
+
 interface ConsultantsViewProps {
   consultants: ConsultantWithRelations[];
+  users: UserOption[];
 }
 
 const groupOptions = [
@@ -52,7 +59,7 @@ const roleOptions = [
   { value: RoleLevel.PM, label: "PM" },
 ];
 
-export function ConsultantsView({ consultants }: ConsultantsViewProps) {
+export function ConsultantsView({ consultants, users }: ConsultantsViewProps) {
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState<string>("all");
@@ -138,11 +145,11 @@ export function ConsultantsView({ consultants }: ConsultantsViewProps) {
           <CardTitle>All Consultants ({filteredConsultants.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <ConsultantTable consultants={filteredConsultants} />
+          <ConsultantTable consultants={filteredConsultants} users={users} />
         </CardContent>
       </Card>
 
-      <ConsultantForm open={showForm} onOpenChange={setShowForm} />
+      <ConsultantForm open={showForm} onOpenChange={setShowForm} users={users} />
     </>
   );
 }

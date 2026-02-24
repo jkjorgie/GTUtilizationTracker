@@ -49,10 +49,17 @@ type ConsultantWithRelations = Consultant & {
   roles: ConsultantRole[];
 };
 
+type UserOption = {
+  id: string;
+  email: string;
+  consultant: { id: string; name: string } | null;
+};
+
 interface ConsultantFormProps {
   consultant?: ConsultantWithRelations | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  users?: UserOption[];
 }
 
 const groupOptions = [
@@ -81,7 +88,7 @@ const roleOptions = [
   { value: RoleLevel.PM, label: "PM" },
 ];
 
-export function ConsultantForm({ consultant, open, onOpenChange }: ConsultantFormProps) {
+export function ConsultantForm({ consultant, open, onOpenChange, users = [] }: ConsultantFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -190,9 +197,24 @@ export function ConsultantForm({ consultant, open, onOpenChange }: ConsultantFor
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>HR Manager</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Manager name" {...field} />
-                    </FormControl>
+                    <Select
+                      onValueChange={(v) => field.onChange(v === "__none__" ? "" : v)}
+                      value={field.value || "__none__"}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select manager" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="__none__">None</SelectItem>
+                        {users.map((user) => (
+                          <SelectItem key={user.id} value={user.consultant?.name ?? user.email}>
+                            {user.consultant?.name ?? user.email}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

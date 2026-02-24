@@ -205,6 +205,12 @@ export async function processActualsUpload(formData: FormData): Promise<UploadRe
   let processedCount = 0;
   let processedHours = 0;
 
+  const userExists = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true },
+  });
+  const createdById = userExists ? session.user.id : null;
+
   for (const entry of matched) {
     try {
       await prisma.allocation.upsert({
@@ -218,7 +224,6 @@ export async function processActualsUpload(formData: FormData): Promise<UploadRe
         },
         update: {
           hours: entry.hours,
-          createdById: session.user.id,
         },
         create: {
           consultantId: entry.consultantId,
@@ -226,7 +231,7 @@ export async function processActualsUpload(formData: FormData): Promise<UploadRe
           weekStart: weekStart,
           hours: entry.hours,
           entryType: "ACTUAL",
-          createdById: session.user.id,
+          createdById,
         },
       });
       processedCount++;

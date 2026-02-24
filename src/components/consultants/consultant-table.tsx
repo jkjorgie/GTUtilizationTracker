@@ -30,6 +30,7 @@ import {
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { deleteConsultant } from "@/app/actions/consultants";
 import { ConsultantForm } from "./consultant-form";
+import { type UserOption } from "./consultants-view";
 
 type ConsultantWithRelations = Consultant & {
   groups: ConsultantGroup[];
@@ -39,6 +40,7 @@ type ConsultantWithRelations = Consultant & {
 
 interface ConsultantTableProps {
   consultants: ConsultantWithRelations[];
+  users: UserOption[];
 }
 
 const otPreferenceLabels: Record<OvertimePreference, string> = {
@@ -47,7 +49,7 @@ const otPreferenceLabels: Record<OvertimePreference, string> = {
   OPEN: "Open",
 };
 
-export function ConsultantTable({ consultants }: ConsultantTableProps) {
+export function ConsultantTable({ consultants, users }: ConsultantTableProps) {
   const [editingConsultant, setEditingConsultant] = useState<ConsultantWithRelations | null>(null);
   const [deletingConsultant, setDeletingConsultant] = useState<ConsultantWithRelations | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -157,6 +159,7 @@ export function ConsultantTable({ consultants }: ConsultantTableProps) {
         consultant={editingConsultant}
         open={!!editingConsultant}
         onOpenChange={(open) => !open && setEditingConsultant(null)}
+        users={users}
       />
 
       <AlertDialog open={!!deletingConsultant} onOpenChange={(open) => !open && setDeletingConsultant(null)}>

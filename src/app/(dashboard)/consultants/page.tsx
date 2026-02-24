@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getConsultants } from "@/app/actions/consultants";
+import { getUsers } from "@/app/actions/users";
 import { ConsultantsView } from "@/components/consultants/consultants-view";
 
 export default async function ConsultantsPage() {
@@ -9,12 +10,14 @@ export default async function ConsultantsPage() {
     redirect("/");
   }
 
-  // Fetch all consultants - filtering is done client-side for instant search
-  const consultants = await getConsultants();
+  const [consultants, users] = await Promise.all([
+    getConsultants(),
+    getUsers(),
+  ]);
 
   return (
     <div className="space-y-6">
-      <ConsultantsView consultants={consultants} />
+      <ConsultantsView consultants={consultants} users={users} />
     </div>
   );
 }
