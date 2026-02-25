@@ -171,6 +171,7 @@ model Allocation {
 model RoleDefinition {
   id       String  @id @default(cuid())
   name     String  @unique
+  category String  @default("")
   msrpRate Float   @default(0)
   isActive Boolean @default(true)
 

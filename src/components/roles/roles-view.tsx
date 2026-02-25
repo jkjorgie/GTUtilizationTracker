@@ -29,6 +29,7 @@ import { updateRoleDefinition } from "@/app/actions/roles";
 interface RoleDefinition {
   id: string;
   name: string;
+  category: string;
   msrpRate: number;
   isActive: boolean;
   createdAt: Date;
@@ -81,6 +82,9 @@ export function RolesView({ roles: initialRoles }: RolesViewProps) {
 
   const activeCount = roles.filter(r => r.isActive).length;
 
+  // Group roles by category for display
+  const categories = Array.from(new Set(roles.map(r => r.category))).sort();
+
   return (
     <>
       <div>
@@ -102,6 +106,7 @@ export function RolesView({ roles: initialRoles }: RolesViewProps) {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[200px]">Category</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead className="text-right">MSRP Rate</TableHead>
                   <TableHead className="text-center">Status</TableHead>
@@ -109,33 +114,40 @@ export function RolesView({ roles: initialRoles }: RolesViewProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {roles.map((role) => (
-                  <TableRow key={role.id} className={!role.isActive ? "opacity-50" : ""}>
-                    <TableCell>{role.name}</TableCell>
-                    <TableCell className="text-right font-mono">
-                      {role.msrpRate > 0
-                        ? `$${role.msrpRate.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                        : "-"}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge
-                        variant="secondary"
-                        className={
-                          role.isActive
-                            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200"
-                            : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200"
-                        }
-                      >
-                        {role.isActive ? "Active" : "Inactive"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(role)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {categories.map((category) =>
+                  roles
+                    .filter(r => r.category === category)
+                    .map((role, idx) => (
+                      <TableRow key={role.id} className={!role.isActive ? "opacity-50" : ""}>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {idx === 0 ? category : ""}
+                        </TableCell>
+                        <TableCell>{role.name}</TableCell>
+                        <TableCell className="text-right font-mono">
+                          {role.msrpRate > 0
+                            ? `$${role.msrpRate.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                            : "-"}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge
+                            variant="secondary"
+                            className={
+                              role.isActive
+                                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200"
+                                : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200"
+                            }
+                          >
+                            {role.isActive ? "Active" : "Inactive"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(role)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                )}
               </TableBody>
             </Table>
           </div>
@@ -147,7 +159,13 @@ export function RolesView({ roles: initialRoles }: RolesViewProps) {
           <DialogHeader>
             <DialogTitle>Edit Role</DialogTitle>
             <DialogDescription>
-              {editingRole?.name}
+              {editingRole && (
+                <>
+                  <span className="text-xs text-muted-foreground">{editingRole.category}</span>
+                  <br />
+                  <span className="font-medium text-foreground">{editingRole.name}</span>
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
 

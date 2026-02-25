@@ -19,7 +19,7 @@ export async function getRoleDefinitions() {
   }
 
   return prisma.roleDefinition.findMany({
-    orderBy: { msrpRate: "desc" },
+    orderBy: [{ category: "asc" }, { msrpRate: "desc" }],
   });
 }
 

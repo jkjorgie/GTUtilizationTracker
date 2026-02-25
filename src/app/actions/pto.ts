@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { PTOStatus, AllocationEntryType } from "@prisma/client";
-import { startOfWeek, eachWeekOfInterval, differenceInHours, parseISO, addDays } from "date-fns";
+import { startOfWeek, eachWeekOfInterval, parseISO, addDays, isAfter } from "date-fns";
 
 const ptoSchema = z.object({
   consultantId: z.string().min(1, "Consultant is required"),
@@ -210,6 +210,8 @@ export async function approvePTORequest(id: string) {
   const totalPTOHours = totalDays * hoursPerDay;
 
   // Create allocation entries for each week
+  const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 0 });
+
   for (const weekStart of weeks) {
     // Calculate hours for this specific week
     const weekEnd = addDays(weekStart, 6);
@@ -228,13 +230,19 @@ export async function approvePTORequest(id: string) {
     const weekHours = weekDays * hoursPerDay;
 
     if (weekHours > 0) {
+      // Future weeks: use PROJECTED so they appear in the utilization planning grid.
+      // Past/current weeks: use ACTUAL.
+      const entryType = isAfter(startOfWeek(weekStart, { weekStartsOn: 0 }), currentWeekStart)
+        ? AllocationEntryType.PROJECTED
+        : AllocationEntryType.ACTUAL;
+
       await prisma.allocation.upsert({
         where: {
           consultantId_projectId_weekStart_entryType: {
             consultantId: pto.consultantId,
             projectId: ptoProject.id,
             weekStart: startOfWeek(weekStart, { weekStartsOn: 0 }),
-            entryType: AllocationEntryType.ACTUAL,
+            entryType,
           },
         },
         update: {
@@ -245,7 +253,7 @@ export async function approvePTORequest(id: string) {
           projectId: ptoProject.id,
           weekStart: startOfWeek(weekStart, { weekStartsOn: 0 }),
           hours: weekHours,
-          entryType: AllocationEntryType.ACTUAL,
+          entryType,
           notes: `PTO: ${pto.startDate.toLocaleDateString()} - ${pto.endDate.toLocaleDateString()}`,
           createdById: session.user.id,
         },
