@@ -43,13 +43,13 @@ const navItems: NavItem[] = [
     label: "Actual Hours Upload",
     href: "/actuals-upload",
     icon: <FileUp className="h-5 w-5" />,
-    roles: ["ADMIN", "MANAGER"],
+    roles: ["ADMIN"],
   },
   {
     label: "Projected Hours Load",
     href: "/mass-load",
     icon: <Upload className="h-5 w-5" />,
-    roles: ["ADMIN", "MANAGER"],
+    roles: ["ADMIN"],
   },
   {
     label: "Projects",

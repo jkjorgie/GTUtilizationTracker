@@ -35,6 +35,7 @@ import { type UserOption } from "./consultants-view";
 type ConsultantWithRelations = Consultant & {
   groups: ConsultantGroup[];
   roles: ConsultantRole[];
+  manager?: { id: string; name: string } | null;
   user?: { email: string } | null;
 };
 
@@ -125,7 +126,7 @@ export function ConsultantTable({ consultants, users }: ConsultantTableProps) {
                   <TableCell className="text-right">{consultant.standardHours}</TableCell>
                   <TableCell>{otPreferenceLabels[consultant.overtimePreference]}</TableCell>
                   <TableCell className="text-right">{consultant.overtimeHoursAvailable}</TableCell>
-                  <TableCell className="text-muted-foreground">{consultant.hrManager || "-"}</TableCell>
+                  <TableCell className="text-muted-foreground">{consultant.manager?.name || "-"}</TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

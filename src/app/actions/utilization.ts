@@ -54,8 +54,23 @@ export async function getUtilizationData(
   const weeks = getWeeksInRange(start, end);
   const weekStrings = weeks.map((w) => formatDateUTC(w));
 
-  // Get all consultants with their roles and groups
+  // Build consultant filter based on role
+  const consultantWhere: Record<string, unknown> = {};
+  if (session.user.role === "EMPLOYEE") {
+    if (!session.user.consultantId) {
+      return { consultants: [], weeks: weekStrings, allocations: {}, consultantProjects: {} };
+    }
+    consultantWhere.id = session.user.consultantId;
+  } else if (session.user.role === "MANAGER") {
+    if (!session.user.consultantId) {
+      return { consultants: [], weeks: weekStrings, allocations: {}, consultantProjects: {} };
+    }
+    consultantWhere.managerId = session.user.consultantId;
+  }
+  // ADMIN: no filter, sees everyone
+
   const consultants = await prisma.consultant.findMany({
+    where: consultantWhere,
     include: {
       roles: true,
       groups: true,
@@ -63,9 +78,12 @@ export async function getUtilizationData(
     orderBy: { name: "asc" },
   });
 
-  // Get all allocations in the date range
+  const visibleConsultantIds = consultants.map(c => c.id);
+
+  // Get allocations in the date range for visible consultants
   const allocations = await prisma.allocation.findMany({
     where: {
+      consultantId: { in: visibleConsultantIds },
       weekStart: {
         gte: start,
         lte: end,
@@ -127,9 +145,10 @@ export async function getUtilizationData(
     }
   }
 
-  // Get all distinct consultant-project pairs for active projects (across all time)
+  // Get distinct consultant-project pairs for active projects (visible consultants only)
   const consultantProjectAssocs = await prisma.allocation.findMany({
     where: {
+      consultantId: { in: visibleConsultantIds },
       project: {
         status: ProjectStatus.ACTIVE,
       },
@@ -189,9 +208,18 @@ export async function updateAllocation(
     throw new Error("Unauthorized");
   }
 
-  // Employees can only edit their own allocations
   if (session.user.role === "EMPLOYEE" && session.user.consultantId !== consultantId) {
     throw new Error("You can only edit your own allocations");
+  }
+
+  if (session.user.role === "MANAGER") {
+    const target = await prisma.consultant.findUnique({
+      where: { id: consultantId },
+      select: { managerId: true },
+    });
+    if (target?.managerId !== session.user.consultantId) {
+      throw new Error("You can only edit allocations for your direct reports");
+    }
   }
 
   const weekDate = startOfWeek(parseISO(weekStart), { weekStartsOn: 0 });
@@ -248,6 +276,16 @@ export async function deleteAllocation(
 
   if (session.user.role === "EMPLOYEE" && session.user.consultantId !== consultantId) {
     throw new Error("You can only delete your own allocations");
+  }
+
+  if (session.user.role === "MANAGER") {
+    const target = await prisma.consultant.findUnique({
+      where: { id: consultantId },
+      select: { managerId: true },
+    });
+    if (target?.managerId !== session.user.consultantId) {
+      throw new Error("You can only delete allocations for your direct reports");
+    }
   }
 
   const weekDate = startOfWeek(parseISO(weekStart), { weekStartsOn: 0 });

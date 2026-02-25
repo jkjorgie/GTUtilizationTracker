@@ -19,12 +19,14 @@ import { Plus, Search } from "lucide-react";
 type ConsultantWithRelations = Consultant & {
   groups: ConsultantGroup[];
   roles: ConsultantRole[];
+  manager?: { id: string; name: string } | null;
   user?: { email: string } | null;
 };
 
 export type UserOption = {
   id: string;
   email: string;
+  role: string;
   consultant: { id: string; name: string } | null;
 };
 

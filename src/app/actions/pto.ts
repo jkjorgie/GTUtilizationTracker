@@ -29,7 +29,7 @@ export async function getPTORequests(filters?: {
 
   const where: {
     status?: PTOStatus;
-    consultantId?: string;
+    consultantId?: string | { in: string[] };
   } = {};
 
   // Filter by status if provided
@@ -39,11 +39,28 @@ export async function getPTORequests(filters?: {
 
   // Role-based filtering
   if (session.user.role === "EMPLOYEE") {
-    // Employees can only see their own PTO
     if (!session.user.consultantId) {
       return [];
     }
     where.consultantId = session.user.consultantId;
+  } else if (session.user.role === "MANAGER") {
+    if (!session.user.consultantId) {
+      return [];
+    }
+    const directReports = await prisma.consultant.findMany({
+      where: { managerId: session.user.consultantId },
+      select: { id: true },
+    });
+    const directReportIds = directReports.map(c => c.id);
+    if (filters?.consultantId) {
+      if (directReportIds.includes(filters.consultantId)) {
+        where.consultantId = filters.consultantId;
+      } else {
+        return [];
+      }
+    } else {
+      where.consultantId = { in: directReportIds };
+    }
   } else if (filters?.consultantId) {
     where.consultantId = filters.consultantId;
   }
@@ -128,6 +145,16 @@ export async function approvePTORequest(id: string) {
 
   if (!pto) {
     throw new Error("PTO request not found");
+  }
+
+  if (session.user.role === "MANAGER") {
+    const consultant = await prisma.consultant.findUnique({
+      where: { id: pto.consultantId },
+      select: { managerId: true },
+    });
+    if (consultant?.managerId !== session.user.consultantId) {
+      throw new Error("You can only approve PTO for your direct reports");
+    }
   }
 
   if (pto.status !== PTOStatus.PENDING) {
@@ -252,6 +279,16 @@ export async function denyPTORequest(id: string) {
 
   if (!pto) {
     throw new Error("PTO request not found");
+  }
+
+  if (session.user.role === "MANAGER") {
+    const consultant = await prisma.consultant.findUnique({
+      where: { id: pto.consultantId },
+      select: { managerId: true },
+    });
+    if (consultant?.managerId !== session.user.consultantId) {
+      throw new Error("You can only deny PTO for your direct reports");
+    }
   }
 
   if (pto.status !== PTOStatus.PENDING) {

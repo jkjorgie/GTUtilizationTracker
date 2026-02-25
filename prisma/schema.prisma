@@ -98,7 +98,10 @@ model Consultant {
   standardHours         Float              @default(40)
   overtimePreference    OvertimePreference @default(NONE)
   overtimeHoursAvailable Float             @default(0)
-  hrManager             String?
+  hrManager             String?            // @deprecated - being migrated to managerId
+  managerId             String?
+  manager               Consultant?        @relation("ConsultantManager", fields: [managerId], references: [id], onDelete: SetNull)
+  directReports         Consultant[]       @relation("ConsultantManager")
   
   user        User?
   groups      ConsultantGroup[]

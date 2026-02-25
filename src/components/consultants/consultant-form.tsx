@@ -37,7 +37,7 @@ const formSchema = z.object({
   standardHours: z.number().min(0).max(80),
   overtimePreference: z.nativeEnum(OvertimePreference),
   overtimeHoursAvailable: z.number().min(0).max(40),
-  hrManager: z.string().optional(),
+  managerId: z.string().optional().nullable(),
   groups: z.array(z.nativeEnum(GroupType)).min(1, "At least one group is required"),
   roles: z.array(z.nativeEnum(RoleLevel)).min(1, "At least one role is required"),
 });
@@ -52,6 +52,7 @@ type ConsultantWithRelations = Consultant & {
 type UserOption = {
   id: string;
   email: string;
+  role: string;
   consultant: { id: string; name: string } | null;
 };
 
@@ -105,7 +106,7 @@ export function ConsultantForm({ consultant, open, onOpenChange, users = [] }: C
       standardHours: 40,
       overtimePreference: OvertimePreference.NONE,
       overtimeHoursAvailable: 0,
-      hrManager: "",
+      managerId: "",
       groups: [],
       roles: [],
     },
@@ -119,7 +120,7 @@ export function ConsultantForm({ consultant, open, onOpenChange, users = [] }: C
         standardHours: consultant?.standardHours || 40,
         overtimePreference: consultant?.overtimePreference || OvertimePreference.NONE,
         overtimeHoursAvailable: consultant?.overtimeHoursAvailable || 0,
-        hrManager: consultant?.hrManager || "",
+        managerId: consultant?.managerId || "",
         groups: consultant?.groups.map(g => g.group) || [],
         roles: consultant?.roles.map(r => r.level) || [],
       });
@@ -199,10 +200,10 @@ export function ConsultantForm({ consultant, open, onOpenChange, users = [] }: C
 
               <FormField
                 control={form.control}
-                name="hrManager"
+                name="managerId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>HR Manager</FormLabel>
+                    <FormLabel>Manager</FormLabel>
                     <Select
                       onValueChange={(v) => field.onChange(v === "__none__" ? "" : v)}
                       value={field.value || "__none__"}
@@ -214,11 +215,14 @@ export function ConsultantForm({ consultant, open, onOpenChange, users = [] }: C
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="__none__">None</SelectItem>
-                        {users.map((user) => (
-                          <SelectItem key={user.id} value={user.consultant?.name ?? user.email}>
-                            {user.consultant?.name ?? user.email}
-                          </SelectItem>
-                        ))}
+                        {users
+                          .filter((u) => u.role === "ADMIN" || u.role === "MANAGER")
+                          .filter((u) => u.consultant)
+                          .map((user) => (
+                            <SelectItem key={user.consultant!.id} value={user.consultant!.id}>
+                              {user.consultant!.name}
+                            </SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />

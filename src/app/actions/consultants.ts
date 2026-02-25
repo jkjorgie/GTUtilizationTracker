@@ -11,7 +11,7 @@ const consultantSchema = z.object({
   standardHours: z.number().min(0).max(80),
   overtimePreference: z.nativeEnum(OvertimePreference),
   overtimeHoursAvailable: z.number().min(0).max(40),
-  hrManager: z.string().optional(),
+  managerId: z.string().optional().nullable(),
   groups: z.array(z.nativeEnum(GroupType)).min(1, "At least one group is required"),
   roles: z.array(z.nativeEnum(RoleLevel)).min(1, "At least one role is required"),
 });
@@ -51,6 +51,9 @@ export async function getConsultants(filters?: {
     include: {
       groups: true,
       roles: true,
+      manager: {
+        select: { id: true, name: true },
+      },
       user: {
         select: { email: true },
       },
@@ -70,6 +73,9 @@ export async function getConsultant(id: string) {
     include: {
       groups: true,
       roles: true,
+      manager: {
+        select: { id: true, name: true },
+      },
     },
   });
 }
@@ -88,7 +94,7 @@ export async function createConsultant(data: ConsultantFormData) {
       standardHours: validated.standardHours,
       overtimePreference: validated.overtimePreference,
       overtimeHoursAvailable: validated.overtimeHoursAvailable,
-      hrManager: validated.hrManager,
+      managerId: validated.managerId || null,
       groups: {
         create: validated.groups.map((group) => ({ group })),
       },
@@ -127,7 +133,7 @@ export async function updateConsultant(id: string, data: ConsultantFormData) {
       standardHours: validated.standardHours,
       overtimePreference: validated.overtimePreference,
       overtimeHoursAvailable: validated.overtimeHoursAvailable,
-      hrManager: validated.hrManager,
+      managerId: validated.managerId || null,
       groups: {
         create: validated.groups.map((group) => ({ group })),
       },
