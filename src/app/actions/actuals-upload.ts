@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import * as XLSX from "xlsx";
-import { startOfWeek } from "date-fns";
+import { startOfWeek, subWeeks, format as formatDate } from "date-fns";
 
 export interface UnmatchedEntry {
   projectCode: string;
@@ -28,6 +28,28 @@ export interface UploadResult {
   errors: string[];
 }
 
+function extractDateFromFilename(filename: string): Date | null {
+  // YYYY-MM-DD
+  const isoMatch = filename.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    const d = new Date(+isoMatch[1], +isoMatch[2] - 1, +isoMatch[3]);
+    if (!isNaN(d.getTime())) return d;
+  }
+  // MM-DD-YYYY
+  const usMatch = filename.match(/(\d{2})-(\d{2})-(\d{4})/);
+  if (usMatch) {
+    const d = new Date(+usMatch[3], +usMatch[1] - 1, +usMatch[2]);
+    if (!isNaN(d.getTime())) return d;
+  }
+  // YYYYMMDD
+  const compactMatch = filename.match(/(\d{4})(\d{2})(\d{2})/);
+  if (compactMatch) {
+    const d = new Date(+compactMatch[1], +compactMatch[2] - 1, +compactMatch[3]);
+    if (!isNaN(d.getTime())) return d;
+  }
+  return null;
+}
+
 export async function processActualsUpload(formData: FormData): Promise<UploadResult> {
   const session = await auth();
   if (!session || !["ADMIN", "MANAGER"].includes(session.user.role)) {
@@ -46,24 +68,40 @@ export async function processActualsUpload(formData: FormData): Promise<UploadRe
     header: 1,
   });
 
-  // 1. Detect date range from the first ~10 rows
+  // 1. Derive weekStart from the filename date (previous week's Sunday)
   let weekStart: Date | null = null;
   let dateRange = "";
-  const datePattern = /^(\w+ \d{1,2}, \d{4})\s*-\s*(\w+ \d{1,2}, \d{4})$/;
 
+  const filenameDate = extractDateFromFilename(file.name);
+  if (filenameDate) {
+    weekStart = subWeeks(startOfWeek(filenameDate, { weekStartsOn: 0 }), 1);
+  }
+
+  // 2. Scan first ~10 rows for a date range string (used for display only;
+  //    also serves as fallback weekStart when filename has no date)
+  const datePattern = /^(\w+ \d{1,2}, \d{4})\s*-\s*(\w+ \d{1,2}, \d{4})$/;
   for (const row of rows.slice(0, 10)) {
     const cell = row?.[0]?.toString().trim();
     if (cell) {
       const match = cell.match(datePattern);
       if (match) {
         dateRange = cell;
-        const startDate = new Date(match[1]);
-        if (!isNaN(startDate.getTime())) {
-          weekStart = startOfWeek(startDate, { weekStartsOn: 0 });
+        if (!weekStart) {
+          const startDate = new Date(match[1]);
+          if (!isNaN(startDate.getTime())) {
+            weekStart = startOfWeek(startDate, { weekStartsOn: 0 });
+          }
         }
         break;
       }
     }
+  }
+
+  // If still no weekStart, generate dateRange from computed weekStart for display
+  if (weekStart && !dateRange) {
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    dateRange = `${formatDate(weekStart, "MMMM d, yyyy")} - ${formatDate(weekEnd, "MMMM d, yyyy")}`;
   }
 
   if (!weekStart) {
@@ -74,7 +112,7 @@ export async function processActualsUpload(formData: FormData): Promise<UploadRe
       processed: { count: 0, totalHours: 0 },
       unmatched: [],
       errors: [
-        "Could not detect a date range in the spreadsheet. Expected a row like \"February 8, 2026 - February 14, 2026\" in the first few rows.",
+        "Could not determine the week to import. Include a date in the filename (e.g. 2026-02-24_PMReport.xlsx) or ensure the spreadsheet has a date range in the first few rows.",
       ],
     };
   }
