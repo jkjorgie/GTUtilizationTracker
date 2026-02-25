@@ -169,10 +169,10 @@ model Allocation {
 }
 
 model RoleDefinition {
-  id       String    @id @default(cuid())
-  level    RoleLevel @unique
-  msrpRate Float     @default(0)
-  isActive Boolean   @default(true)
+  id       String  @id @default(cuid())
+  name     String  @unique
+  msrpRate Float   @default(0)
+  isActive Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { RoleLevel } from "@prisma/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -29,7 +28,7 @@ import { updateRoleDefinition } from "@/app/actions/roles";
 
 interface RoleDefinition {
   id: string;
-  level: RoleLevel;
+  name: string;
   msrpRate: number;
   isActive: boolean;
   createdAt: Date;
@@ -39,25 +38,6 @@ interface RoleDefinition {
 interface RolesViewProps {
   roles: RoleDefinition[];
 }
-
-const roleLabelMap: Record<RoleLevel, string> = {
-  T1: "Technical Analyst 1",
-  T2: "Technical Analyst 2",
-  T3: "Technical Analyst 3",
-  STA: "Senior Technical Analyst",
-  PTA: "Principal Technical Analyst",
-  LTA: "Lead Technical Analyst",
-  FA1: "Functional Analyst 1",
-  FA2: "Functional Analyst 2",
-  FA3: "Functional Analyst 3",
-  SBA: "Senior Business Analyst",
-  PBA: "Principal Business Analyst",
-  LBA: "Lead Business Analyst",
-  EM1: "Engagement Manager 1",
-  EM2: "Engagement Manager 2",
-  EM3: "Engagement Manager 3",
-  PM: "Project Manager",
-};
 
 export function RolesView({ roles: initialRoles }: RolesViewProps) {
   const [roles, setRoles] = useState(initialRoles);
@@ -114,7 +94,7 @@ export function RolesView({ roles: initialRoles }: RolesViewProps) {
         <CardHeader>
           <CardTitle>Roles ({activeCount} active)</CardTitle>
           <CardDescription>
-            Edit the MSRP rate and active status for each role level. Only active roles can be assigned to consultants.
+            Edit the MSRP rate and active status for each role. Only active roles can be assigned to consultants.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -122,8 +102,7 @@ export function RolesView({ roles: initialRoles }: RolesViewProps) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Role Code</TableHead>
-                  <TableHead>Description</TableHead>
+                  <TableHead>Role</TableHead>
                   <TableHead className="text-right">MSRP Rate</TableHead>
                   <TableHead className="text-center">Status</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
@@ -132,8 +111,7 @@ export function RolesView({ roles: initialRoles }: RolesViewProps) {
               <TableBody>
                 {roles.map((role) => (
                   <TableRow key={role.id} className={!role.isActive ? "opacity-50" : ""}>
-                    <TableCell className="font-mono font-medium">{role.level}</TableCell>
-                    <TableCell>{roleLabelMap[role.level] ?? role.level}</TableCell>
+                    <TableCell>{role.name}</TableCell>
                     <TableCell className="text-right font-mono">
                       {role.msrpRate > 0
                         ? `$${role.msrpRate.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -165,17 +143,11 @@ export function RolesView({ roles: initialRoles }: RolesViewProps) {
       </Card>
 
       <Dialog open={!!editingRole} onOpenChange={(open) => !open && setEditingRole(null)}>
-        <DialogContent className="sm:max-w-[400px]">
+        <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
             <DialogTitle>Edit Role</DialogTitle>
             <DialogDescription>
-              {editingRole && (
-                <>
-                  <span className="font-mono font-medium">{editingRole.level}</span>
-                  {" - "}
-                  {roleLabelMap[editingRole.level] ?? editingRole.level}
-                </>
-              )}
+              {editingRole?.name}
             </DialogDescription>
           </DialogHeader>
 
