@@ -38,6 +38,12 @@ const groupOptions = [
   { value: GroupType.FABA, label: "FA/BA" },
   { value: GroupType.PEM, label: "PEM" },
   { value: GroupType.SA, label: "SA" },
+  { value: GroupType.SYSADMIN, label: "Sys Admin" },
+  { value: GroupType.WEBUX, label: "WebUX" },
+  { value: GroupType.INTRASEE, label: "IntraSee" },
+  { value: GroupType.MGDSVC, label: "Managed Services" },
+  { value: GroupType.STAFFAUG, label: "Staff Aug" },
+  { value: GroupType.PRODUCT, label: "Product" },
 ];
 
 const roleOptions = [

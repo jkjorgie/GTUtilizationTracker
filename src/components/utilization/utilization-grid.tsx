@@ -236,10 +236,10 @@ export function UtilizationGrid({
           <div className="min-w-max">
             {/* Header Row 1: Months */}
             <div className="flex border-b bg-muted/50">
-              <div className="w-24 min-w-24 p-2 border-r font-medium text-sm sticky left-0 bg-muted/50 z-20">
+              <div className="w-16 min-w-16 p-2 border-r font-medium text-sm sticky left-0 bg-muted/50 z-20">
                 Role
               </div>
-              <div className="w-48 min-w-48 p-2 border-r font-medium text-sm sticky left-24 bg-muted/50 z-20">
+              <div className="w-64 min-w-64 p-2 border-r font-medium text-sm sticky left-16 bg-muted/50 z-20">
                 Name
               </div>
               {Array.from(monthGroups.entries()).map(([monthKey, weeks]) => (
@@ -255,8 +255,8 @@ export function UtilizationGrid({
 
             {/* Header Row 2: Week dates */}
             <div className="flex border-b bg-muted/30">
-              <div className="w-24 min-w-24 p-2 border-r sticky left-0 bg-muted/30 z-20" />
-              <div className="w-48 min-w-48 p-2 border-r sticky left-24 bg-muted/30 z-20" />
+              <div className="w-16 min-w-16 p-2 border-r sticky left-0 bg-muted/30 z-20" />
+              <div className="w-64 min-w-64 p-2 border-r sticky left-16 bg-muted/30 z-20" />
               {data.weeks.map((week) => (
                 <div
                   key={week}
@@ -285,7 +285,7 @@ export function UtilizationGrid({
                     {/* Summary Row */}
                     <div className="flex border-b hover:bg-muted/20">
                       {/* Role column */}
-                      <div className="w-24 min-w-24 p-2 border-r sticky left-0 bg-background z-10">
+                      <div className="w-16 min-w-16 p-2 border-r sticky left-0 bg-background z-10">
                         <div className="flex flex-wrap gap-1">
                           {consultant.roles.slice(0, 2).map((role) => (
                             <Badge key={role} variant="secondary" className="text-xs">
@@ -296,7 +296,7 @@ export function UtilizationGrid({
                       </div>
 
                       {/* Name column with expand toggle */}
-                      <div className="w-48 min-w-48 p-2 border-r sticky left-24 bg-background z-10">
+                      <div className="w-64 min-w-64 p-2 border-r sticky left-16 bg-background z-10">
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => toggleConsultant(consultant.id)}
@@ -361,10 +361,10 @@ export function UtilizationGrid({
                       return (
                         <div key={project.projectId} className="flex border-b bg-muted/5">
                           {/* Empty role column */}
-                          <div className="w-24 min-w-24 border-r sticky left-0 bg-muted/5 z-10" />
+                          <div className="w-16 min-w-16 border-r sticky left-0 bg-muted/5 z-10" />
 
                           {/* Project name column */}
-                          <div className="w-48 min-w-48 px-2 py-1.5 border-r sticky left-24 bg-muted/5 z-10 flex items-center">
+                          <div className="w-64 min-w-64 px-2 py-1.5 border-r sticky left-16 bg-muted/5 z-10 flex items-center">
                             <span className="text-xs text-muted-foreground pl-5 truncate">
                               {project.timecode} - {project.projectName}
                             </span>

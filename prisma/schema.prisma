@@ -20,6 +20,12 @@ enum GroupType {
   FABA
   PEM
   SA
+  SYSADMIN
+  WEBUX
+  INTRASEE
+  MGDSVC
+  STAFFAUG
+  PRODUCT
 }
 
 enum RoleLevel {
