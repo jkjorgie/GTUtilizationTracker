@@ -76,6 +76,29 @@ enum PTOStatus {
   DENIED
 }
 
+enum SalesManager {
+  SCOTT_A
+  RAIN
+  JOHN_B
+  TODD
+}
+
+enum Currency {
+  USD
+  CAD
+}
+
+enum ContractType {
+  MILESTONE
+  TM
+}
+
+enum HealthStatus {
+  RED
+  YELLOW
+  GREEN
+}
+
 // Models
 model User {
   id           String     @id @default(cuid())
@@ -108,7 +131,9 @@ model Consultant {
   roles       ConsultantRole[]
   allocations Allocation[]
   ptoRequests PTORequest[]
-  
+  projectsManaged Project[]       @relation("ProjectManager")
+  projectMembers  ProjectMember[] @relation("ProjectMembers")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -138,9 +163,22 @@ model Project {
   timecode    String        @unique
   type        ProjectType   @default(BILLABLE)
   status      ProjectStatus @default(ACTIVE)
-  
+
+  projectManagerId String?
+  projectManager   Consultant?   @relation("ProjectManager", fields: [projectManagerId], references: [id], onDelete: SetNull)
+  startDate        DateTime?     @db.Date
+  endDate          DateTime?     @db.Date
+  salesManager     SalesManager?
+  budget           Float?
+  currency         Currency      @default(USD)
+  contractType     ContractType?
+  healthStatus     HealthStatus?
+  salesDiscount    Float?
+  comments         String?
+
   allocations Allocation[]
-  
+  members     ProjectMember[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -175,8 +213,26 @@ model RoleDefinition {
   msrpRate Float   @default(0)
   isActive Boolean @default(true)
 
+  projectMembers ProjectMember[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model ProjectMember {
+  id               String          @id @default(cuid())
+  projectId        String
+  project          Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  consultantId     String
+  consultant       Consultant      @relation("ProjectMembers", fields: [consultantId], references: [id], onDelete: Cascade)
+  roleDefinitionId String?
+  roleDefinition   RoleDefinition? @relation(fields: [roleDefinitionId], references: [id])
+  billingRate      Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, consultantId])
 }
 
 model PTORequest {

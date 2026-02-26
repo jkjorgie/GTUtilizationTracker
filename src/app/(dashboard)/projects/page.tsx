@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { getProjects } from "@/app/actions/projects";
+import { getProjects, getPEMConsultants } from "@/app/actions/projects";
+import { getRoleDefinitions } from "@/app/actions/roles";
+import { getAllConsultants } from "@/app/actions/consultants";
 import { ProjectsView } from "@/components/projects/projects-view";
 
 export default async function ProjectsPage() {
@@ -9,12 +11,21 @@ export default async function ProjectsPage() {
     redirect("/");
   }
 
-  // Fetch all projects - filtering is done client-side for instant search
-  const projects = await getProjects();
+  const [projects, pemConsultants, roleDefinitions, allConsultants] = await Promise.all([
+    getProjects(),
+    getPEMConsultants(),
+    getRoleDefinitions(),
+    getAllConsultants(),
+  ]);
 
   return (
     <div className="space-y-6">
-      <ProjectsView projects={projects} />
+      <ProjectsView
+        projects={projects}
+        pemConsultants={pemConsultants}
+        roleDefinitions={roleDefinitions}
+        allConsultants={allConsultants}
+      />
     </div>
   );
 }

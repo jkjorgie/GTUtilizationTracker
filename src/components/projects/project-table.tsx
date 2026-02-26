@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Project, ProjectType, ProjectStatus } from "@prisma/client";
+import { useState, useCallback } from "react";
+import { ProjectType, ProjectStatus, HealthStatus } from "@prisma/client";
 import {
   Table,
   TableBody,
@@ -27,12 +27,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { deleteProject } from "@/app/actions/projects";
-import { ProjectForm } from "./project-form";
+import { getProjectMembers } from "@/app/actions/project-members";
+import { ProjectForm, ProjectWithRelations } from "./project-form";
+
+// ProjectRow is the shape returned by getProjects() (with projectManager included)
+type ProjectRow = ProjectWithRelations & {
+  projectManager: { id: string; name: string } | null;
+};
 
 interface ProjectTableProps {
-  projects: Project[];
+  projects: ProjectRow[];
+  pemConsultants: { id: string; name: string }[];
+  roleDefinitions: { id: string; name: string; msrpRate: number; category: string }[];
+  allConsultants: { id: string; name: string }[];
 }
 
 const typeColors: Record<ProjectType, string> = {
@@ -47,15 +57,33 @@ const statusColors: Record<ProjectStatus, string> = {
   INACTIVE: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200",
 };
 
-export function ProjectTable({ projects }: ProjectTableProps) {
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [deletingProject, setDeletingProject] = useState<Project | null>(null);
+const healthDotColors: Record<HealthStatus, string> = {
+  RED: "bg-red-500",
+  YELLOW: "bg-yellow-400",
+  GREEN: "bg-green-500",
+};
+
+export function ProjectTable({ projects, pemConsultants, roleDefinitions, allConsultants }: ProjectTableProps) {
+  const [editingProject, setEditingProject] = useState<ProjectWithRelations | null>(null);
+  const [editFormOpen, setEditFormOpen] = useState(false);
+  const [deletingProject, setDeletingProject] = useState<ProjectRow | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const handleOpenEdit = useCallback(async (project: ProjectRow) => {
+    // Open form immediately with project data, then lazily load members
+    setEditingProject(project);
+    setEditFormOpen(true);
+    try {
+      const members = await getProjectMembers(project.id);
+      setEditingProject((prev) => prev ? { ...prev, members } : prev);
+    } catch {
+      // members won't be pre-loaded, user can still navigate to Team tab
+    }
+  }, []);
+
   const handleDelete = async () => {
     if (!deletingProject) return;
-
     setIsDeleting(true);
     try {
       await deleteProject(deletingProject.id);
@@ -74,9 +102,11 @@ export function ProjectTable({ projects }: ProjectTableProps) {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[24px]"></TableHead>
               <TableHead>Client</TableHead>
               <TableHead>Project</TableHead>
               <TableHead>Timecode</TableHead>
+              <TableHead>PM</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-[50px]"></TableHead>
@@ -85,16 +115,27 @@ export function ProjectTable({ projects }: ProjectTableProps) {
           <TableBody>
             {projects.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   No projects found
                 </TableCell>
               </TableRow>
             ) : (
               projects.map((project) => (
                 <TableRow key={project.id}>
+                  <TableCell className="pr-0">
+                    {project.healthStatus ? (
+                      <span
+                        className={cn("block w-2.5 h-2.5 rounded-full mx-auto", healthDotColors[project.healthStatus])}
+                        title={project.healthStatus}
+                      />
+                    ) : null}
+                  </TableCell>
                   <TableCell className="font-medium">{project.client}</TableCell>
                   <TableCell>{project.projectName}</TableCell>
                   <TableCell className="font-mono text-sm">{project.timecode}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {project.projectManager?.name ?? "—"}
+                  </TableCell>
                   <TableCell>
                     <Badge variant="secondary" className={typeColors[project.type]}>
                       {project.type}
@@ -113,7 +154,7 @@ export function ProjectTable({ projects }: ProjectTableProps) {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setEditingProject(project)}>
+                        <DropdownMenuItem onClick={() => handleOpenEdit(project)}>
                           <Pencil className="mr-2 h-4 w-4" />
                           Edit
                         </DropdownMenuItem>
@@ -136,8 +177,14 @@ export function ProjectTable({ projects }: ProjectTableProps) {
 
       <ProjectForm
         project={editingProject}
-        open={!!editingProject}
-        onOpenChange={(open) => !open && setEditingProject(null)}
+        open={editFormOpen}
+        onOpenChange={(open) => {
+          setEditFormOpen(open);
+          if (!open) setEditingProject(null);
+        }}
+        pemConsultants={pemConsultants}
+        roleDefinitions={roleDefinitions}
+        allConsultants={allConsultants}
       />
 
       <AlertDialog open={!!deletingProject} onOpenChange={(open) => !open && setDeletingProject(null)}>
@@ -157,8 +204,8 @@ export function ProjectTable({ projects }: ProjectTableProps) {
             <AlertDialogCancel onClick={() => setDeleteError(null)} disabled={isDeleting}>
               Cancel
             </AlertDialogCancel>
-            <Button 
-              onClick={handleDelete} 
+            <Button
+              onClick={handleDelete}
               disabled={isDeleting}
               variant="destructive"
             >

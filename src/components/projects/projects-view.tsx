@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Project, ProjectType, ProjectStatus } from "@prisma/client";
+import { ProjectType, ProjectStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,38 +12,37 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ProjectForm } from "./project-form";
+import { ProjectForm, ProjectWithRelations } from "./project-form";
 import { ProjectTable } from "./project-table";
 import { Plus, Search } from "lucide-react";
 
+type ProjectRow = ProjectWithRelations & {
+  projectManager: { id: string; name: string } | null;
+};
+
 interface ProjectsViewProps {
-  projects: Project[];
+  projects: ProjectRow[];
+  pemConsultants: { id: string; name: string }[];
+  roleDefinitions: { id: string; name: string; msrpRate: number; category: string }[];
+  allConsultants: { id: string; name: string }[];
 }
 
-export function ProjectsView({ projects }: ProjectsViewProps) {
+export function ProjectsView({ projects, pemConsultants, roleDefinitions, allConsultants }: ProjectsViewProps) {
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  // Client-side filtering - instant, no debounce needed
   const filteredProjects = useMemo(() => {
     return projects.filter((project) => {
-      // Type filter
-      if (typeFilter !== "all" && project.type !== typeFilter) {
-        return false;
-      }
-      // Status filter
-      if (statusFilter !== "all" && project.status !== statusFilter) {
-        return false;
-      }
-      // Search filter
+      if (typeFilter !== "all" && project.type !== typeFilter) return false;
+      if (statusFilter !== "all" && project.status !== statusFilter) return false;
       if (search) {
-        const searchLower = search.toLowerCase();
+        const q = search.toLowerCase();
         return (
-          project.client.toLowerCase().includes(searchLower) ||
-          project.projectName.toLowerCase().includes(searchLower) ||
-          project.timecode.toLowerCase().includes(searchLower)
+          project.client.toLowerCase().includes(q) ||
+          project.projectName.toLowerCase().includes(q) ||
+          project.timecode.toLowerCase().includes(q)
         );
       }
       return true;
@@ -106,11 +105,22 @@ export function ProjectsView({ projects }: ProjectsViewProps) {
           <CardTitle>All Projects ({filteredProjects.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <ProjectTable projects={filteredProjects} />
+          <ProjectTable
+            projects={filteredProjects}
+            pemConsultants={pemConsultants}
+            roleDefinitions={roleDefinitions}
+            allConsultants={allConsultants}
+          />
         </CardContent>
       </Card>
 
-      <ProjectForm open={showForm} onOpenChange={setShowForm} />
+      <ProjectForm
+        open={showForm}
+        onOpenChange={setShowForm}
+        pemConsultants={pemConsultants}
+        roleDefinitions={roleDefinitions}
+        allConsultants={allConsultants}
+      />
     </>
   );
 }

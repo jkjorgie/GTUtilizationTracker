@@ -80,14 +80,17 @@ export async function getUtilizationData(
 
   const visibleConsultantIds = consultants.map(c => c.id);
 
-  // Get allocations in the date range for visible consultants
+  // Get allocations in the date range for visible consultants.
+  // - ACTUAL allocations: shown for all projects (including inactive)
+  // - PROJECTED allocations: only shown for active projects
   const allocations = await prisma.allocation.findMany({
     where: {
       consultantId: { in: visibleConsultantIds },
-      weekStart: {
-        gte: start,
-        lte: end,
-      },
+      weekStart: { gte: start, lte: end },
+      OR: [
+        { entryType: AllocationEntryType.ACTUAL },
+        { entryType: AllocationEntryType.PROJECTED, project: { status: ProjectStatus.ACTIVE } },
+      ],
     },
     include: {
       project: {
