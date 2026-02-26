@@ -13,15 +13,17 @@ import { Loader2, ChevronDown, ChevronRight } from "lucide-react";
 interface UtilizationGridProps {
   initialData: UtilizationData;
   projects: Array<{ id: string; projectName: string; timecode: string }>;
+  roleDefinitions: Array<{ id: string; name: string; msrpRate: number }>;
   userRole: string;
   currentConsultantId?: string | null;
 }
 
-export function UtilizationGrid({ 
-  initialData, 
-  projects, 
-  userRole, 
-  currentConsultantId 
+export function UtilizationGrid({
+  initialData,
+  projects,
+  roleDefinitions,
+  userRole,
+  currentConsultantId
 }: UtilizationGridProps) {
   const [isPending, startTransition] = useTransition();
   const [data, setData] = useState<UtilizationData>(initialData);
@@ -336,6 +338,9 @@ export function UtilizationGrid({
                             standardHours={consultant.standardHours}
                             editable={editable}
                             projects={projects}
+                            roleDefinitions={roleDefinitions.filter((rd) =>
+                              consultant.billingRoleIds.includes(rd.id)
+                            )}
                             onSave={(allocations) => {
                               updateLocalAllocations(
                                 consultant.id,

@@ -42,7 +42,7 @@ interface ProjectTableProps {
   projects: ProjectRow[];
   pemConsultants: { id: string; name: string }[];
   roleDefinitions: { id: string; name: string; msrpRate: number; category: string }[];
-  allConsultants: { id: string; name: string }[];
+  allConsultants: { id: string; name: string; billingRoleIds: string[] }[];
 }
 
 const typeColors: Record<ProjectType, string> = {

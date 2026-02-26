@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Consultant, ConsultantGroup, ConsultantRole, GroupType, RoleLevel } from "@prisma/client";
+import { Consultant, ConsultantGroup, ConsultantBillingRole, GroupType } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,7 +18,9 @@ import { Plus, Search } from "lucide-react";
 
 type ConsultantWithRelations = Consultant & {
   groups: ConsultantGroup[];
-  roles: ConsultantRole[];
+  billingRoles: (ConsultantBillingRole & {
+    roleDefinition: { id: string; name: string };
+  })[];
   manager?: { id: string; name: string } | null;
   user?: { email: string } | null;
 };
@@ -33,6 +35,7 @@ export type UserOption = {
 interface ConsultantsViewProps {
   consultants: ConsultantWithRelations[];
   users: UserOption[];
+  roleDefinitions: { id: string; name: string }[];
 }
 
 const groupOptions = [
@@ -48,26 +51,7 @@ const groupOptions = [
   { value: GroupType.PRODUCT, label: "Product" },
 ];
 
-const roleOptions = [
-  { value: RoleLevel.T1, label: "T1" },
-  { value: RoleLevel.T2, label: "T2" },
-  { value: RoleLevel.T3, label: "T3" },
-  { value: RoleLevel.STA, label: "STA" },
-  { value: RoleLevel.PTA, label: "PTA" },
-  { value: RoleLevel.LTA, label: "LTA" },
-  { value: RoleLevel.FA1, label: "FA1" },
-  { value: RoleLevel.FA2, label: "FA2" },
-  { value: RoleLevel.FA3, label: "FA3" },
-  { value: RoleLevel.SBA, label: "SBA" },
-  { value: RoleLevel.PBA, label: "PBA" },
-  { value: RoleLevel.LBA, label: "LBA" },
-  { value: RoleLevel.EM1, label: "EM1" },
-  { value: RoleLevel.EM2, label: "EM2" },
-  { value: RoleLevel.EM3, label: "EM3" },
-  { value: RoleLevel.PM, label: "PM" },
-];
-
-export function ConsultantsView({ consultants, users }: ConsultantsViewProps) {
+export function ConsultantsView({ consultants, users, roleDefinitions }: ConsultantsViewProps) {
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState<string>("all");
@@ -80,8 +64,8 @@ export function ConsultantsView({ consultants, users }: ConsultantsViewProps) {
       if (groupFilter !== "all" && !consultant.groups.some(g => g.group === groupFilter)) {
         return false;
       }
-      // Role filter
-      if (roleFilter !== "all" && !consultant.roles.some(r => r.level === roleFilter)) {
+      // Role filter (by roleDefinitionId)
+      if (roleFilter !== "all" && !consultant.billingRoles.some(br => br.roleDefinitionId === roleFilter)) {
         return false;
       }
       // Search filter
@@ -119,7 +103,7 @@ export function ConsultantsView({ consultants, users }: ConsultantsViewProps) {
 
         <div className="flex gap-2">
           <Select value={groupFilter} onValueChange={setGroupFilter}>
-            <SelectTrigger className="w-[120px]">
+            <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Group" />
             </SelectTrigger>
             <SelectContent>
@@ -133,14 +117,14 @@ export function ConsultantsView({ consultants, users }: ConsultantsViewProps) {
           </Select>
 
           <Select value={roleFilter} onValueChange={setRoleFilter}>
-            <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="Role" />
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Billing Role" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Roles</SelectItem>
-              {roleOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
+              {roleDefinitions.map((role) => (
+                <SelectItem key={role.id} value={role.id}>
+                  {role.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -153,11 +137,20 @@ export function ConsultantsView({ consultants, users }: ConsultantsViewProps) {
           <CardTitle>All Consultants ({filteredConsultants.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <ConsultantTable consultants={filteredConsultants} users={users} />
+          <ConsultantTable
+            consultants={filteredConsultants}
+            users={users}
+            roleDefinitions={roleDefinitions}
+          />
         </CardContent>
       </Card>
 
-      <ConsultantForm open={showForm} onOpenChange={setShowForm} users={users} />
+      <ConsultantForm
+        open={showForm}
+        onOpenChange={setShowForm}
+        users={users}
+        roleDefinitions={roleDefinitions}
+      />
     </>
   );
 }

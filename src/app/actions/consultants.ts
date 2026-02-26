@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { GroupType, RoleLevel, OvertimePreference } from "@prisma/client";
+import { GroupType, OvertimePreference } from "@prisma/client";
 
 const consultantSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -13,14 +13,14 @@ const consultantSchema = z.object({
   overtimeHoursAvailable: z.number().min(0).max(40),
   managerId: z.string().optional().nullable(),
   groups: z.array(z.nativeEnum(GroupType)).min(1, "At least one group is required"),
-  roles: z.array(z.nativeEnum(RoleLevel)).min(1, "At least one role is required"),
+  billingRoleIds: z.array(z.string()).min(1, "At least one billing role is required"),
 });
 
 export type ConsultantFormData = z.infer<typeof consultantSchema>;
 
 export async function getConsultants(filters?: {
   group?: GroupType;
-  role?: RoleLevel;
+  billingRoleId?: string;
   search?: string;
 }) {
   const session = await auth();
@@ -30,7 +30,7 @@ export async function getConsultants(filters?: {
 
   const where: {
     groups?: { some: { group: GroupType } };
-    roles?: { some: { level: RoleLevel } };
+    billingRoles?: { some: { roleDefinitionId: string } };
     name?: { contains: string; mode: "insensitive" };
   } = {};
 
@@ -38,8 +38,8 @@ export async function getConsultants(filters?: {
     where.groups = { some: { group: filters.group } };
   }
 
-  if (filters?.role) {
-    where.roles = { some: { level: filters.role } };
+  if (filters?.billingRoleId) {
+    where.billingRoles = { some: { roleDefinitionId: filters.billingRoleId } };
   }
 
   if (filters?.search) {
@@ -50,7 +50,11 @@ export async function getConsultants(filters?: {
     where,
     include: {
       groups: true,
-      roles: true,
+      billingRoles: {
+        include: {
+          roleDefinition: { select: { id: true, name: true } },
+        },
+      },
       manager: {
         select: { id: true, name: true },
       },
@@ -72,7 +76,11 @@ export async function getConsultant(id: string) {
     where: { id },
     include: {
       groups: true,
-      roles: true,
+      billingRoles: {
+        include: {
+          roleDefinition: { select: { id: true, name: true } },
+        },
+      },
       manager: {
         select: { id: true, name: true },
       },
@@ -98,13 +106,17 @@ export async function createConsultant(data: ConsultantFormData) {
       groups: {
         create: validated.groups.map((group) => ({ group })),
       },
-      roles: {
-        create: validated.roles.map((level) => ({ level })),
+      billingRoles: {
+        create: validated.billingRoleIds.map((roleDefinitionId) => ({ roleDefinitionId })),
       },
     },
     include: {
       groups: true,
-      roles: true,
+      billingRoles: {
+        include: {
+          roleDefinition: { select: { id: true, name: true } },
+        },
+      },
     },
   });
 
@@ -120,10 +132,10 @@ export async function updateConsultant(id: string, data: ConsultantFormData) {
 
   const validated = consultantSchema.parse(data);
 
-  // Delete existing groups and roles, then recreate
+  // Delete existing groups and billing roles, then recreate
   await prisma.$transaction([
     prisma.consultantGroup.deleteMany({ where: { consultantId: id } }),
-    prisma.consultantRole.deleteMany({ where: { consultantId: id } }),
+    prisma.consultantBillingRole.deleteMany({ where: { consultantId: id } }),
   ]);
 
   const consultant = await prisma.consultant.update({
@@ -137,13 +149,17 @@ export async function updateConsultant(id: string, data: ConsultantFormData) {
       groups: {
         create: validated.groups.map((group) => ({ group })),
       },
-      roles: {
-        create: validated.roles.map((level) => ({ level })),
+      billingRoles: {
+        create: validated.billingRoleIds.map((roleDefinitionId) => ({ roleDefinitionId })),
       },
     },
     include: {
       groups: true,
-      roles: true,
+      billingRoles: {
+        include: {
+          roleDefinition: { select: { id: true, name: true } },
+        },
+      },
     },
   });
 
@@ -171,12 +187,20 @@ export async function getAllConsultants() {
     throw new Error("Unauthorized");
   }
 
-  return prisma.consultant.findMany({
+  const consultants = await prisma.consultant.findMany({
     orderBy: { name: "asc" },
     select: {
       id: true,
       name: true,
       standardHours: true,
+      billingRoles: { select: { roleDefinitionId: true } },
     },
   });
+
+  return consultants.map((c) => ({
+    id: c.id,
+    name: c.name,
+    standardHours: c.standardHours,
+    billingRoleIds: c.billingRoles.map((br) => br.roleDefinitionId),
+  }));
 }

@@ -42,6 +42,7 @@ interface WeekCellProps {
   standardHours: number;
   editable: boolean;
   projects: Array<{ id: string; projectName: string; timecode: string }>;
+  roleDefinitions: Array<{ id: string; name: string; msrpRate: number }>;
   onSave?: (allocations: Array<{ projectId: string; projectedHours: number; actualHours: number }>) => void;
 }
 
@@ -89,6 +90,7 @@ export function WeekCell({
   standardHours,
   editable,
   projects,
+  roleDefinitions,
   onSave,
 }: WeekCellProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -200,6 +202,7 @@ export function WeekCell({
           standardHours={standardHours}
           details={details}
           projects={projects}
+          roleDefinitions={roleDefinitions}
           onSave={onSave}
         />
       )}

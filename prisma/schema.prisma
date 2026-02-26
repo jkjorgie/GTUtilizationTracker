@@ -126,11 +126,12 @@ model Consultant {
   manager               Consultant?        @relation("ConsultantManager", fields: [managerId], references: [id], onDelete: SetNull)
   directReports         Consultant[]       @relation("ConsultantManager")
   
-  user        User?
-  groups      ConsultantGroup[]
-  roles       ConsultantRole[]
-  allocations Allocation[]
-  ptoRequests PTORequest[]
+  user         User?
+  groups       ConsultantGroup[]
+  roles        ConsultantRole[]
+  billingRoles ConsultantBillingRole[] @relation("ConsultantBillingRoles")
+  allocations  Allocation[]
+  ptoRequests  PTORequest[]
   projectsManaged Project[]       @relation("ProjectManager")
   projectMembers  ProjectMember[] @relation("ProjectMembers")
 
@@ -213,10 +214,21 @@ model RoleDefinition {
   msrpRate Float   @default(0)
   isActive Boolean @default(true)
 
-  projectMembers ProjectMember[]
+  projectMembers        ProjectMember[]
+  consultantBillingRoles ConsultantBillingRole[] @relation("ConsultantBillingRoles")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model ConsultantBillingRole {
+  id               String         @id @default(cuid())
+  consultantId     String
+  consultant       Consultant     @relation("ConsultantBillingRoles", fields: [consultantId], references: [id], onDelete: Cascade)
+  roleDefinitionId String
+  roleDefinition   RoleDefinition @relation("ConsultantBillingRoles", fields: [roleDefinitionId], references: [id], onDelete: Cascade)
+
+  @@unique([consultantId, roleDefinitionId])
 }
 
 model ProjectMember {

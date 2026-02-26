@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { auth } from "@/lib/auth";
 import { getUtilizationData } from "@/app/actions/utilization";
 import { getActiveProjects } from "@/app/actions/projects";
+import { getRoleDefinitions } from "@/app/actions/roles";
 import { UtilizationGrid } from "@/components/utilization/utilization-grid";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
@@ -10,15 +11,17 @@ async function UtilizationContent() {
   const session = await auth();
   if (!session) return null;
 
-  const [data, projects] = await Promise.all([
+  const [data, projects, roleDefinitions] = await Promise.all([
     getUtilizationData(),
     getActiveProjects(),
+    getRoleDefinitions(),
   ]);
 
   return (
     <UtilizationGrid
       initialData={data}
       projects={projects}
+      roleDefinitions={roleDefinitions}
       userRole={session.user.role}
       currentConsultantId={session.user.consultantId}
     />

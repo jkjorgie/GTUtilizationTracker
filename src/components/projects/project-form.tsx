@@ -107,7 +107,7 @@ interface ProjectFormProps {
   onOpenChange: (open: boolean) => void;
   pemConsultants: { id: string; name: string }[];
   roleDefinitions: { id: string; name: string; msrpRate: number; category: string }[];
-  allConsultants: { id: string; name: string }[];
+  allConsultants: { id: string; name: string; billingRoleIds: string[] }[];
 }
 
 const salesManagerLabels: Record<SalesManager, string> = {
@@ -402,6 +402,21 @@ export function ProjectForm({
   const availableConsultants = allConsultants.filter(
     (c) => !members.some((m) => m.consultantId === c.id)
   );
+
+  // Role options filtered to the selected/editing consultant's billing roles
+  const addMemberRoleOptions = newMemberConsultantId
+    ? roleDefinitions.filter((rd) => {
+        const c = allConsultants.find((c) => c.id === newMemberConsultantId);
+        return c ? c.billingRoleIds.includes(rd.id) : true;
+      })
+    : roleDefinitions;
+
+  const editMemberRoleOptions = editingMemberId
+    ? roleDefinitions.filter((rd) => {
+        const c = allConsultants.find((c) => c.id === editingMemberId);
+        return c ? c.billingRoleIds.includes(rd.id) : true;
+      })
+    : roleDefinitions;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -830,7 +845,7 @@ export function ProjectForm({
                                     </SelectTrigger>
                                     <SelectContent>
                                       <SelectItem value="__none__">— None —</SelectItem>
-                                      {roleDefinitions.map((r) => (
+                                      {editMemberRoleOptions.map((r) => (
                                         <SelectItem key={r.id} value={r.id}>
                                           {r.name}
                                         </SelectItem>
@@ -944,7 +959,7 @@ export function ProjectForm({
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="__none__">— None —</SelectItem>
-                              {roleDefinitions.map((r) => (
+                              {addMemberRoleOptions.map((r) => (
                                 <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
                               ))}
                             </SelectContent>

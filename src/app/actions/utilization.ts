@@ -18,6 +18,7 @@ export interface UtilizationData {
     name: string;
     standardHours: number;
     roles: string[];
+    billingRoleIds: string[];
     groups: string[];
   }>;
   weeks: string[]; // ISO date strings of week starts
@@ -72,8 +73,12 @@ export async function getUtilizationData(
   const consultants = await prisma.consultant.findMany({
     where: consultantWhere,
     include: {
-      roles: true,
       groups: true,
+      billingRoles: {
+        include: {
+          roleDefinition: { select: { name: true } },
+        },
+      },
     },
     orderBy: { name: "asc" },
   });
@@ -189,7 +194,8 @@ export async function getUtilizationData(
       id: c.id,
       name: c.name,
       standardHours: c.standardHours,
-      roles: c.roles.map((r) => r.level),
+      roles: c.billingRoles.map((br) => br.roleDefinition.name),
+      billingRoleIds: c.billingRoles.map((br) => br.roleDefinitionId),
       groups: c.groups.map((g) => g.group),
     })),
     weeks: weekStrings,

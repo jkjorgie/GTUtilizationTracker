@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { updateAllocation, deleteAllocation } from "@/app/actions/utilization";
+import { upsertProjectMember } from "@/app/actions/project-members";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -44,6 +45,7 @@ interface WeekCellEditorProps {
   standardHours: number;
   details: AllocationDetail[];
   projects: Array<{ id: string; projectName: string; timecode: string }>;
+  roleDefinitions: Array<{ id: string; name: string; msrpRate: number }>;
   onSave?: (allocations: Array<{ projectId: string; projectedHours: number; actualHours: number }>) => void;
 }
 
@@ -56,6 +58,7 @@ export function WeekCellEditor({
   standardHours,
   details,
   projects,
+  roleDefinitions,
   onSave,
 }: WeekCellEditorProps) {
   const [isPending, startTransition] = useTransition();
@@ -67,12 +70,14 @@ export function WeekCellEditor({
     actualHours: number;
     projectedHours: number;
     notes: string;
+    roleDefinitionId?: string | null; // only set for newly-added rows
   }[]>([]);
-  
+
   // New allocation form
   const [newProjectId, setNewProjectId] = useState<string>("");
   const [newActualHours, setNewActualHours] = useState<number>(0);
   const [newProjectedHours, setNewProjectedHours] = useState<number>(8);
+  const [newRoleId, setNewRoleId] = useState<string>("");
 
   // Determine if this week is in the past, current, or future
   const weekDate = parseISO(week);
@@ -151,12 +156,14 @@ export function WeekCellEditor({
       actualHours: isPast || isCurrent ? newActualHours : 0,
       projectedHours: newProjectedHours,
       notes: "",
+      roleDefinitionId: newRoleId || null,
     }]);
-    
+
     setNewProjectId("");
     setNewActualHours(0);
     setNewProjectedHours(8);
-  }, [newProjectId, newActualHours, newProjectedHours, editedAllocations, isPast, isCurrent]);
+    setNewRoleId("");
+  }, [newProjectId, newActualHours, newProjectedHours, newRoleId, editedAllocations, isPast, isCurrent]);
 
   const handleSaveAll = useCallback(() => {
     setError(null);
@@ -170,6 +177,13 @@ export function WeekCellEditor({
         for (const detail of details) {
           if (!newProjectIds.has(detail.projectId)) {
             await deleteAllocation(consultantId, detail.projectId, week, detail.entryType);
+          }
+        }
+
+        // Upsert ProjectMember role for any newly-added project that had a role selected
+        for (const allocation of editedAllocations) {
+          if (allocation.roleDefinitionId !== undefined && allocation.roleDefinitionId !== null) {
+            await upsertProjectMember(allocation.projectId, consultantId, allocation.roleDefinitionId, null);
           }
         }
 
@@ -310,9 +324,9 @@ export function WeekCellEditor({
             {availableProjects.length > 0 && (
               <div className="border-2 border-dashed rounded-lg p-4 space-y-3">
                 <Label className="text-sm font-medium">Add Project</Label>
-                <div className="flex gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <Select value={newProjectId} onValueChange={setNewProjectId}>
-                    <SelectTrigger className="flex-1">
+                    <SelectTrigger>
                       <SelectValue placeholder="Select project" />
                     </SelectTrigger>
                     <SelectContent>
@@ -323,14 +337,25 @@ export function WeekCellEditor({
                       ))}
                     </SelectContent>
                   </Select>
-                  <Button onClick={handleAddProject} disabled={!newProjectId}>
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add
-                  </Button>
+                  <Select value={newRoleId || "__none__"} onValueChange={(v) => setNewRoleId(v === "__none__" ? "" : v)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Billing role (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— No role —</SelectItem>
+                      {roleDefinitions.map((r) => (
+                        <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                
+                <Button onClick={handleAddProject} disabled={!newProjectId} size="sm">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add
+                </Button>
+
                 {newProjectId && (
-                  <div className="grid grid-cols-2 gap-4 mt-2">
+                  <div className="grid grid-cols-2 gap-4">
                     {!isFuture && (
                       <div className="space-y-1">
                         <Label className="text-xs">Actual Hours</Label>

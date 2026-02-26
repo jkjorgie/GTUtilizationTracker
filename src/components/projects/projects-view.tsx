@@ -24,7 +24,7 @@ interface ProjectsViewProps {
   projects: ProjectRow[];
   pemConsultants: { id: string; name: string }[];
   roleDefinitions: { id: string; name: string; msrpRate: number; category: string }[];
-  allConsultants: { id: string; name: string }[];
+  allConsultants: { id: string; name: string; billingRoleIds: string[] }[];
 }
 
 export function ProjectsView({ projects, pemConsultants, roleDefinitions, allConsultants }: ProjectsViewProps) {

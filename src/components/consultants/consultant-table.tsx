@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Consultant, ConsultantGroup, ConsultantRole, OvertimePreference } from "@prisma/client";
+import { Consultant, ConsultantGroup, ConsultantBillingRole, OvertimePreference } from "@prisma/client";
 import {
   Table,
   TableBody,
@@ -34,7 +34,9 @@ import { type UserOption } from "./consultants-view";
 
 type ConsultantWithRelations = Consultant & {
   groups: ConsultantGroup[];
-  roles: ConsultantRole[];
+  billingRoles: (ConsultantBillingRole & {
+    roleDefinition: { id: string; name: string };
+  })[];
   manager?: { id: string; name: string } | null;
   user?: { email: string } | null;
 };
@@ -42,6 +44,7 @@ type ConsultantWithRelations = Consultant & {
 interface ConsultantTableProps {
   consultants: ConsultantWithRelations[];
   users: UserOption[];
+  roleDefinitions: { id: string; name: string }[];
 }
 
 const otPreferenceLabels: Record<OvertimePreference, string> = {
@@ -50,7 +53,7 @@ const otPreferenceLabels: Record<OvertimePreference, string> = {
   OPEN: "Open",
 };
 
-export function ConsultantTable({ consultants, users }: ConsultantTableProps) {
+export function ConsultantTable({ consultants, users, roleDefinitions }: ConsultantTableProps) {
   const [editingConsultant, setEditingConsultant] = useState<ConsultantWithRelations | null>(null);
   const [deletingConsultant, setDeletingConsultant] = useState<ConsultantWithRelations | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -79,11 +82,11 @@ export function ConsultantTable({ consultants, users }: ConsultantTableProps) {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Groups</TableHead>
-              <TableHead>Roles</TableHead>
+              <TableHead>Billing Roles</TableHead>
               <TableHead className="text-right">Std Hours</TableHead>
               <TableHead>OT Pref</TableHead>
               <TableHead className="text-right">OT Hours</TableHead>
-              <TableHead>HR Manager</TableHead>
+              <TableHead>Manager</TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
@@ -116,9 +119,9 @@ export function ConsultantTable({ consultants, users }: ConsultantTableProps) {
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {consultant.roles.map((r) => (
-                        <Badge key={r.id} variant="secondary" className="text-xs">
-                          {r.level}
+                      {consultant.billingRoles.map((br) => (
+                        <Badge key={br.id} variant="secondary" className="text-xs">
+                          {br.roleDefinition.name}
                         </Badge>
                       ))}
                     </div>
@@ -161,6 +164,7 @@ export function ConsultantTable({ consultants, users }: ConsultantTableProps) {
         open={!!editingConsultant}
         onOpenChange={(open) => !open && setEditingConsultant(null)}
         users={users}
+        roleDefinitions={roleDefinitions}
       />
 
       <AlertDialog open={!!deletingConsultant} onOpenChange={(open) => !open && setDeletingConsultant(null)}>
@@ -180,8 +184,8 @@ export function ConsultantTable({ consultants, users }: ConsultantTableProps) {
             <AlertDialogCancel onClick={() => setDeleteError(null)} disabled={isDeleting}>
               Cancel
             </AlertDialogCancel>
-            <Button 
-              onClick={handleDelete} 
+            <Button
+              onClick={handleDelete}
               disabled={isDeleting}
               variant="destructive"
             >

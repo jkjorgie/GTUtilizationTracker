@@ -1,12 +1,11 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { GroupType, RoleLevel, OvertimePreference, Consultant, ConsultantGroup, ConsultantRole } from "@prisma/client";
+import { GroupType, OvertimePreference, Consultant, ConsultantGroup, ConsultantBillingRole } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -31,6 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { createConsultant, updateConsultant } from "@/app/actions/consultants";
 import { useState, useEffect } from "react";
+import { X, Search } from "lucide-react";
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -39,14 +39,16 @@ const formSchema = z.object({
   overtimeHoursAvailable: z.number().min(0).max(40),
   managerId: z.string().optional().nullable(),
   groups: z.array(z.nativeEnum(GroupType)).min(1, "At least one group is required"),
-  roles: z.array(z.nativeEnum(RoleLevel)).min(1, "At least one role is required"),
+  billingRoleIds: z.array(z.string()).min(1, "At least one billing role is required"),
 });
 
 type FormData = z.infer<typeof formSchema>;
 
 type ConsultantWithRelations = Consultant & {
   groups: ConsultantGroup[];
-  roles: ConsultantRole[];
+  billingRoles: (ConsultantBillingRole & {
+    roleDefinition: { id: string; name: string };
+  })[];
 };
 
 type UserOption = {
@@ -61,43 +63,34 @@ interface ConsultantFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   users?: UserOption[];
+  roleDefinitions?: { id: string; name: string }[];
 }
 
-const groupOptions = [
-  { value: GroupType.TECH, label: "Tech" },
-  { value: GroupType.FABA, label: "FA/BA" },
-  { value: GroupType.PEM, label: "PEM" },
-  { value: GroupType.SA, label: "SA" },
-  { value: GroupType.SYSADMIN, label: "Sys Admin" },
-  { value: GroupType.WEBUX, label: "WebUX" },
-  { value: GroupType.INTRASEE, label: "IntraSee" },
-  { value: GroupType.MGDSVC, label: "Managed Services" },
-  { value: GroupType.STAFFAUG, label: "Staff Aug" },
-  { value: GroupType.PRODUCT, label: "Product" },
-];
+const GROUP_LABELS: Record<GroupType, string> = {
+  TECH: "Tech",
+  FABA: "FA/BA",
+  PEM: "PEM",
+  SA: "SA",
+  SYSADMIN: "Sys Admin",
+  WEBUX: "WebUX",
+  INTRASEE: "IntraSee",
+  MGDSVC: "Managed Services",
+  STAFFAUG: "Staff Aug",
+  PRODUCT: "Product",
+};
 
-const roleOptions = [
-  { value: RoleLevel.T1, label: "T1" },
-  { value: RoleLevel.T2, label: "T2" },
-  { value: RoleLevel.T3, label: "T3" },
-  { value: RoleLevel.STA, label: "STA" },
-  { value: RoleLevel.PTA, label: "PTA" },
-  { value: RoleLevel.LTA, label: "LTA" },
-  { value: RoleLevel.FA1, label: "FA1" },
-  { value: RoleLevel.FA2, label: "FA2" },
-  { value: RoleLevel.FA3, label: "FA3" },
-  { value: RoleLevel.SBA, label: "SBA" },
-  { value: RoleLevel.PBA, label: "PBA" },
-  { value: RoleLevel.LBA, label: "LBA" },
-  { value: RoleLevel.EM1, label: "EM1" },
-  { value: RoleLevel.EM2, label: "EM2" },
-  { value: RoleLevel.EM3, label: "EM3" },
-  { value: RoleLevel.PM, label: "PM" },
-];
+const groupOptions = Object.values(GroupType).map((v) => ({ value: v, label: GROUP_LABELS[v] }));
 
-export function ConsultantForm({ consultant, open, onOpenChange, users = [] }: ConsultantFormProps) {
+export function ConsultantForm({
+  consultant,
+  open,
+  onOpenChange,
+  users = [],
+  roleDefinitions = [],
+}: ConsultantFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [roleSearch, setRoleSearch] = useState("");
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -108,11 +101,10 @@ export function ConsultantForm({ consultant, open, onOpenChange, users = [] }: C
       overtimeHoursAvailable: 0,
       managerId: "",
       groups: [],
-      roles: [],
+      billingRoleIds: [],
     },
   });
 
-  // Reset form when consultant changes (for edit mode)
   useEffect(() => {
     if (open) {
       form.reset({
@@ -121,17 +113,17 @@ export function ConsultantForm({ consultant, open, onOpenChange, users = [] }: C
         overtimePreference: consultant?.overtimePreference || OvertimePreference.NONE,
         overtimeHoursAvailable: consultant?.overtimeHoursAvailable || 0,
         managerId: consultant?.managerId || "",
-        groups: consultant?.groups.map(g => g.group) || [],
-        roles: consultant?.roles.map(r => r.level) || [],
+        groups: consultant?.groups.map((g) => g.group) || [],
+        billingRoleIds: consultant?.billingRoles.map((br) => br.roleDefinitionId) || [],
       });
       setError(null);
+      setRoleSearch("");
     }
   }, [consultant, open, form]);
 
   const onSubmit = async (data: FormData) => {
     setError(null);
     setLoading(true);
-
     try {
       if (consultant) {
         await updateConsultant(consultant.id, data);
@@ -157,13 +149,14 @@ export function ConsultantForm({ consultant, open, onOpenChange, users = [] }: C
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
             {error && (
               <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-md">
                 {error}
               </div>
             )}
 
+            {/* Name */}
             <FormField
               control={form.control}
               name="name"
@@ -178,6 +171,7 @@ export function ConsultantForm({ consultant, open, onOpenChange, users = [] }: C
               )}
             />
 
+            {/* Standard Hours + Manager */}
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -186,9 +180,9 @@ export function ConsultantForm({ consultant, open, onOpenChange, users = [] }: C
                   <FormItem>
                     <FormLabel>Standard Hours</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="number" 
-                        {...field} 
+                      <Input
+                        type="number"
+                        {...field}
                         onChange={(e) => field.onChange(parseFloat(e.target.value))}
                       />
                     </FormControl>
@@ -231,6 +225,7 @@ export function ConsultantForm({ consultant, open, onOpenChange, users = [] }: C
               />
             </div>
 
+            {/* Overtime */}
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -238,10 +233,7 @@ export function ConsultantForm({ consultant, open, onOpenChange, users = [] }: C
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Overtime Preference</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                    >
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select preference" />
@@ -265,9 +257,9 @@ export function ConsultantForm({ consultant, open, onOpenChange, users = [] }: C
                   <FormItem>
                     <FormLabel>OT Hours Available</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="number" 
-                        {...field} 
+                      <Input
+                        type="number"
+                        {...field}
                         onChange={(e) => field.onChange(parseFloat(e.target.value))}
                       />
                     </FormControl>
@@ -277,92 +269,143 @@ export function ConsultantForm({ consultant, open, onOpenChange, users = [] }: C
               />
             </div>
 
-            <FormField
+            {/* Groups — table + select to add */}
+            <Controller
               control={form.control}
               name="groups"
-              render={() => (
-                <FormItem>
-                  <FormLabel>Groups</FormLabel>
-                  <FormDescription>Select all applicable groups</FormDescription>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    {groupOptions.map((option) => (
-                      <FormField
-                        key={option.value}
-                        control={form.control}
-                        name="groups"
-                        render={({ field }) => (
-                          <FormItem className="flex items-center space-x-2 space-y-0">
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value?.includes(option.value)}
-                                onCheckedChange={(checked) => {
-                                  if (checked) {
-                                    field.onChange([...field.value, option.value]);
-                                  } else {
-                                    field.onChange(field.value.filter((v) => v !== option.value));
-                                  }
-                                }}
-                              />
-                            </FormControl>
-                            <FormLabel className="font-normal cursor-pointer">
-                              {option.label}
-                            </FormLabel>
-                          </FormItem>
-                        )}
-                      />
-                    ))}
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
+              render={({ field, fieldState }) => {
+                const unselected = groupOptions.filter((o) => !field.value.includes(o.value));
+                return (
+                  <FormItem>
+                    <FormLabel>Groups</FormLabel>
+                    <FormDescription>Practice groups this consultant belongs to</FormDescription>
+
+                    {field.value.length > 0 && (
+                      <div className="border rounded-md divide-y mt-2">
+                        {field.value.map((g) => (
+                          <div key={g} className="flex items-center justify-between px-3 py-2 text-sm">
+                            <span>{GROUP_LABELS[g]}</span>
+                            <button
+                              type="button"
+                              onClick={() => field.onChange(field.value.filter((v) => v !== g))}
+                              className="text-muted-foreground hover:text-destructive"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {unselected.length > 0 && (
+                      <Select
+                        value=""
+                        onValueChange={(v) => field.onChange([...field.value, v as GroupType])}
+                      >
+                        <SelectTrigger className="mt-2">
+                          <SelectValue placeholder="Add group…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {unselected.map((o) => (
+                            <SelectItem key={o.value} value={o.value}>
+                              {o.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+
+                    {fieldState.error && (
+                      <p className="text-sm text-destructive mt-1">{fieldState.error.message}</p>
+                    )}
+                  </FormItem>
+                );
+              }}
             />
 
-            <FormField
+            {/* Billing Roles — table + searchable add */}
+            <Controller
               control={form.control}
-              name="roles"
-              render={() => (
-                <FormItem>
-                  <FormLabel>Roles</FormLabel>
-                  <FormDescription>Select all applicable roles</FormDescription>
-                  <div className="grid grid-cols-3 gap-2 mt-2">
-                    {roleOptions.map((option) => (
-                      <FormField
-                        key={option.value}
-                        control={form.control}
-                        name="roles"
-                        render={({ field }) => (
-                          <FormItem className="flex items-center space-x-2 space-y-0">
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value?.includes(option.value)}
-                                onCheckedChange={(checked) => {
-                                  if (checked) {
-                                    field.onChange([...field.value, option.value]);
-                                  } else {
-                                    field.onChange(field.value.filter((v) => v !== option.value));
-                                  }
+              name="billingRoleIds"
+              render={({ field, fieldState }) => {
+                const selectedRoles = roleDefinitions.filter((r) => field.value.includes(r.id));
+                const unselectedRoles = roleDefinitions.filter((r) => !field.value.includes(r.id));
+                const filtered = unselectedRoles.filter((r) =>
+                  r.name.toLowerCase().includes(roleSearch.toLowerCase())
+                );
+
+                return (
+                  <FormItem>
+                    <FormLabel>Billing Roles</FormLabel>
+                    <FormDescription>All roles this consultant can bill under</FormDescription>
+
+                    {selectedRoles.length > 0 && (
+                      <div className="border rounded-md divide-y mt-2">
+                        {selectedRoles.map((r) => (
+                          <div key={r.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                            <span>{r.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => field.onChange(field.value.filter((id) => id !== r.id))}
+                              className="text-muted-foreground hover:text-destructive"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {unselectedRoles.length > 0 && (
+                      <div className="mt-2 border rounded-md">
+                        <div className="flex items-center px-3 border-b">
+                          <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <input
+                            type="text"
+                            placeholder="Search roles to add…"
+                            value={roleSearch}
+                            onChange={(e) => setRoleSearch(e.target.value)}
+                            className="w-full py-2 pl-2 text-sm bg-transparent outline-none placeholder:text-muted-foreground"
+                          />
+                        </div>
+                        <div className="max-h-40 overflow-y-auto divide-y">
+                          {filtered.length === 0 ? (
+                            <p className="px-3 py-2 text-sm text-muted-foreground">No roles match</p>
+                          ) : (
+                            filtered.map((r) => (
+                              <button
+                                key={r.id}
+                                type="button"
+                                onClick={() => {
+                                  field.onChange([...field.value, r.id]);
+                                  setRoleSearch("");
                                 }}
-                              />
-                            </FormControl>
-                            <FormLabel className="font-normal cursor-pointer">
-                              {option.label}
-                            </FormLabel>
-                          </FormItem>
-                        )}
-                      />
-                    ))}
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors"
+                              >
+                                {r.name}
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {roleDefinitions.length === 0 && (
+                      <p className="text-sm text-muted-foreground mt-2">
+                        No billing roles configured. Add roles in the Roles setup page.
+                      </p>
+                    )}
+
+                    {fieldState.error && (
+                      <p className="text-sm text-destructive mt-1">{fieldState.error.message}</p>
+                    )}
+                  </FormItem>
+                );
+              }}
             />
 
             <div className="flex justify-end gap-3 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-              >
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>
