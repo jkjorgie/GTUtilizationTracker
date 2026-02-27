@@ -380,7 +380,7 @@ export async function getPendingPTOCount(): Promise<number> {
       select: { id: true },
     });
     const directReportIds = directReports.map((c) => c.id);
-    where.consultantId = { in: directReportIds };
+    where.consultantId = { in: [session.user.consultantId, ...directReportIds] };
   }
   // ADMIN: no consultantId filter → all pending
 
