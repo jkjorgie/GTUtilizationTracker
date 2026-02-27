@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useTransition, useEffect } from "react";
 import { format, parseISO, startOfWeek, isBefore, isAfter } from "date-fns";
-import { AllocationEntryType } from "@prisma/client";
+import { AllocationEntryType, ProjectType } from "@prisma/client";
 import { cn, getUtilizationColor } from "@/lib/utils";
 import {
   Tooltip,
@@ -23,10 +23,15 @@ import { Loader2 } from "lucide-react";
 import { updateAllocation, deleteAllocation } from "@/app/actions/utilization";
 import { WeekCellEditor } from "./week-cell-editor";
 
+export type DisplayMode = "all" | "billable" | "available" | "variance";
+
+const BILLABLE_TYPES: ProjectType[] = [ProjectType.BILLABLE, ProjectType.ASSIGNED];
+
 interface AllocationDetail {
   projectId: string;
   projectName: string;
   timecode: string;
+  projectType: ProjectType;
   hours: number;
   entryType: AllocationEntryType;
   notes: string | null;
@@ -41,6 +46,7 @@ interface WeekCellProps {
   details: AllocationDetail[];
   standardHours: number;
   editable: boolean;
+  displayMode: DisplayMode;
   projects: Array<{ id: string; projectName: string; timecode: string }>;
   roleDefinitions: Array<{ id: string; name: string; msrpRate: number }>;
   onSave?: (allocations: Array<{ projectId: string; projectedHours: number; actualHours: number }>) => void;
@@ -89,6 +95,7 @@ export function WeekCell({
   details,
   standardHours,
   editable,
+  displayMode,
   projects,
   roleDefinitions,
   onSave,
@@ -99,27 +106,65 @@ export function WeekCell({
   const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 0 });
   const isPast = isBefore(weekDate, currentWeekStart);
 
-  const { projectedTotal, actualTotal, status } = useMemo(() => {
-    const actualTotal = details
+  const computed = useMemo(() => {
+    const actualAll = details
       .filter(d => d.entryType === AllocationEntryType.ACTUAL)
       .reduce((sum, d) => sum + d.hours, 0);
-    const projectedTotal = details
+    const projectedAll = details
       .filter(d => d.entryType === AllocationEntryType.PROJECTED)
       .reduce((sum, d) => sum + d.hours, 0);
 
-    const relevantTotal = isPast ? actualTotal : projectedTotal;
-    const ratio = standardHours > 0 ? relevantTotal / standardHours : 0;
+    const billableActual = details
+      .filter(d => d.entryType === AllocationEntryType.ACTUAL && BILLABLE_TYPES.includes(d.projectType))
+      .reduce((sum, d) => sum + d.hours, 0);
+    const billableProjected = details
+      .filter(d => d.entryType === AllocationEntryType.PROJECTED && BILLABLE_TYPES.includes(d.projectType))
+      .reduce((sum, d) => sum + d.hours, 0);
+
+    // Coloring: always based on billable+assigned vs standard hours
+    const colorBasis = isPast ? billableActual : billableProjected;
+    const ratio = standardHours > 0 ? colorBasis / standardHours : 0;
     let status: "under" | "normal" | "over" = "normal";
-    if (relevantTotal > 0) {
+    if (colorBasis > 0) {
       if (ratio < 0.9) status = "under";
       else if (ratio > 1.1) status = "over";
     }
 
-    return { projectedTotal, actualTotal, status };
+    return { actualAll, projectedAll, billableActual, billableProjected, status };
   }, [details, standardHours, isPast]);
 
-  const hasValue = isPast ? (actualTotal > 0 || projectedTotal > 0) : projectedTotal > 0;
+  const { actualAll, projectedAll, billableActual, billableProjected, status } = computed;
+
+  // What the cell actually shows, per mode
+  const displayTop = (() => {
+    if (displayMode === "billable") return billableProjected;
+    if (displayMode === "available") return isPast
+      ? standardHours - billableActual
+      : standardHours - billableProjected;
+    if (displayMode === "variance") return isPast ? actualAll - projectedAll : null;
+    return projectedAll; // "all"
+  })();
+
+  const displayBottom = (() => {
+    if (!isPast) return null;
+    if (displayMode === "billable") return billableActual;
+    if (displayMode === "available" || displayMode === "variance") return null; // single number
+    return actualAll; // "all"
+  })();
+
+  // For "available" and "variance" past weeks, use a single centered value
+  const useSingleValue = displayMode === "available" || displayMode === "variance";
+
+  const hasValue = isPast
+    ? (actualAll > 0 || projectedAll > 0)
+    : projectedAll > 0;
   const colorClass = hasValue ? getUtilizationColor(status) : "";
+
+  const fmt = (n: number | null) => {
+    if (n === null) return "—";
+    if (displayMode === "variance" && n > 0) return `+${n}`;
+    return n === 0 ? "-" : String(n);
+  };
 
   return (
     <>
@@ -135,19 +180,19 @@ export function WeekCell({
             disabled={!editable}
             onClick={() => editable && setIsEditing(true)}
           >
-            {isPast ? (
+            {isPast && !useSingleValue ? (
               <>
                 <DiagonalLine />
                 <span className="absolute top-0 left-1 text-xs leading-tight font-medium">
-                  {projectedTotal > 0 ? projectedTotal : "-"}
+                  {fmt(displayTop)}
                 </span>
                 <span className="absolute bottom-0 right-1 text-xs leading-tight font-medium">
-                  {actualTotal > 0 ? actualTotal : "-"}
+                  {fmt(displayBottom)}
                 </span>
               </>
             ) : (
               <span className="flex items-center justify-center w-full h-full text-sm font-medium">
-                {projectedTotal > 0 ? projectedTotal : "-"}
+                {fmt(displayTop)}
               </span>
             )}
           </button>
@@ -159,14 +204,12 @@ export function WeekCell({
               {isPast && <span className="text-muted-foreground ml-1">(Past)</span>}
             </div>
             <div className="text-sm space-y-1">
-              <div>
-                Projected: {projectedTotal}h / {standardHours}h
-                ({standardHours > 0 ? Math.round((projectedTotal / standardHours) * 100) : 0}%)
-              </div>
-              {isPast && (
-                <div>
-                  Actual: {actualTotal}h / {standardHours}h
-                  ({standardHours > 0 ? Math.round((actualTotal / standardHours) * 100) : 0}%)
+              <div>Projected: {projectedAll}h / {standardHours}h ({standardHours > 0 ? Math.round((projectedAll / standardHours) * 100) : 0}%)</div>
+              {isPast && <div>Actual: {actualAll}h / {standardHours}h ({standardHours > 0 ? Math.round((actualAll / standardHours) * 100) : 0}%)</div>}
+              {(billableProjected !== projectedAll || billableActual !== actualAll) && (
+                <div className="text-muted-foreground">
+                  Billable/Assigned proj: {billableProjected}h
+                  {isPast && ` · actual: ${billableActual}h`}
                 </div>
               )}
             </div>
@@ -178,9 +221,7 @@ export function WeekCell({
                     <span className="text-muted-foreground text-xs ml-1">
                       ({detail.entryType === AllocationEntryType.ACTUAL ? "A" : "P"})
                     </span>
-                    {detail.notes && (
-                      <span className="text-muted-foreground"> - {detail.notes}</span>
-                    )}
+                    {detail.notes && <span className="text-muted-foreground"> - {detail.notes}</span>}
                   </div>
                 ))}
               </div>

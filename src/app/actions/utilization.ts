@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { AllocationEntryType, ProjectStatus } from "@prisma/client";
+import { AllocationEntryType, ProjectStatus, ProjectType } from "@prisma/client";
 import { startOfWeek, parseISO } from "date-fns";
 import { getWeeksInRange, getDefaultDateRange } from "@/lib/utils";
 
@@ -29,6 +29,7 @@ export interface UtilizationData {
       projectId: string;
       projectName: string;
       timecode: string;
+      projectType: ProjectType;
       hours: number;
       entryType: AllocationEntryType;
       notes: string | null;
@@ -103,6 +104,7 @@ export async function getUtilizationData(
           id: true,
           projectName: true,
           timecode: true,
+          type: true,
         },
       },
       createdBy: {
@@ -144,6 +146,7 @@ export async function getUtilizationData(
         projectId: allocation.project.id,
         projectName: allocation.project.projectName,
         timecode: allocation.project.timecode,
+        projectType: allocation.project.type,
         hours: allocation.hours,
         entryType: allocation.entryType,
         notes: allocation.notes,

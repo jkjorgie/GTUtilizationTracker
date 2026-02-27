@@ -2,17 +2,18 @@
 
 import { useState, useMemo, useCallback, useTransition } from "react";
 import { format, parseISO, addWeeks } from "date-fns";
-import { AllocationEntryType } from "@prisma/client";
+import { AllocationEntryType, ProjectType } from "@prisma/client";
 import { UtilizationData, getUtilizationData } from "@/app/actions/utilization";
 import { groupWeeksByMonth, getFirstFullWeekOfMonth } from "@/lib/utils";
-import { WeekCell, ProjectWeekCell } from "./week-cell";
+import { WeekCell, ProjectWeekCell, type DisplayMode } from "./week-cell";
 import { GridFilters } from "./grid-filters";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Loader2, ChevronDown, ChevronRight } from "lucide-react";
 
 interface UtilizationGridProps {
   initialData: UtilizationData;
-  projects: Array<{ id: string; projectName: string; timecode: string }>;
+  projects: Array<{ id: string; projectName: string; timecode: string; type: ProjectType }>;
   roleDefinitions: Array<{ id: string; name: string; msrpRate: number }>;
   userRole: string;
   currentConsultantId?: string | null;
@@ -38,6 +39,7 @@ export function UtilizationGrid({
   const [groupFilter, setGroupFilter] = useState<string>("all");
   const [searchFilter, setSearchFilter] = useState<string>("");
   const [projectFilter, setProjectFilter] = useState<string[]>([]);
+  const [displayMode, setDisplayMode] = useState<DisplayMode>("all");
 
   const [expandedConsultants, setExpandedConsultants] = useState<Set<string>>(new Set());
 
@@ -146,6 +148,7 @@ export function UtilizationGrid({
       projectId: string;
       projectName: string;
       timecode: string;
+      projectType: ProjectType;
       projectedHours: number;
       actualHours: number;
     }>,
@@ -172,6 +175,7 @@ export function UtilizationGrid({
             projectId: update.projectId,
             projectName: update.projectName,
             timecode: update.timecode,
+            projectType: update.projectType,
             hours: update.projectedHours,
             entryType: AllocationEntryType.PROJECTED,
             notes: null,
@@ -184,6 +188,7 @@ export function UtilizationGrid({
             projectId: update.projectId,
             projectName: update.projectName,
             timecode: update.timecode,
+            projectType: update.projectType,
             hours: update.actualHours,
             entryType: AllocationEntryType.ACTUAL,
             notes: null,
@@ -227,6 +232,25 @@ export function UtilizationGrid({
         projectFilter={projectFilter}
         onProjectFilterChange={setProjectFilter}
       />
+
+      {/* Display mode toggle */}
+      <div className="flex gap-1 flex-wrap">
+        {([
+          { value: "all",       label: "All Hours" },
+          { value: "billable",  label: "Billable + Assigned" },
+          { value: "available", label: "Available Hours" },
+          { value: "variance",  label: "Actual vs Projected" },
+        ] as { value: DisplayMode; label: string }[]).map(({ value, label }) => (
+          <Button
+            key={value}
+            size="sm"
+            variant={displayMode === value ? "default" : "outline"}
+            onClick={() => setDisplayMode(value)}
+          >
+            {label}
+          </Button>
+        ))}
+      </div>
 
       <div className="border rounded-lg overflow-x-auto relative">
         {isPending && (
@@ -337,6 +361,7 @@ export function UtilizationGrid({
                             details={details}
                             standardHours={consultant.standardHours}
                             editable={editable}
+                            displayMode={displayMode}
                             projects={projects}
                             roleDefinitions={roleDefinitions.filter((rd) =>
                               consultant.billingRoleIds.includes(rd.id)
@@ -345,13 +370,17 @@ export function UtilizationGrid({
                               updateLocalAllocations(
                                 consultant.id,
                                 week,
-                                allocations.map(a => ({
-                                  projectId: a.projectId,
-                                  projectName: projects.find(p => p.id === a.projectId)?.projectName ?? '',
-                                  timecode: projects.find(p => p.id === a.projectId)?.timecode ?? '',
-                                  projectedHours: a.projectedHours,
-                                  actualHours: a.actualHours,
-                                })),
+                                allocations.map(a => {
+                                  const proj = projects.find(p => p.id === a.projectId);
+                                  return {
+                                    projectId: a.projectId,
+                                    projectName: proj?.projectName ?? '',
+                                    timecode: proj?.timecode ?? '',
+                                    projectType: proj?.type ?? ProjectType.BILLABLE,
+                                    projectedHours: a.projectedHours,
+                                    actualHours: a.actualHours,
+                                  };
+                                }),
                                 true
                               );
                             }}
@@ -406,6 +435,7 @@ export function UtilizationGrid({
                                       projectId: project.projectId,
                                       projectName: project.projectName,
                                       timecode: project.timecode,
+                                      projectType: projects.find(p => p.id === project.projectId)?.type ?? ProjectType.BILLABLE,
                                       projectedHours,
                                       actualHours,
                                     }],

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useTransition, useEffect } from "react";
 import { format, parseISO, startOfWeek, isBefore, isAfter } from "date-fns";
-import { AllocationEntryType } from "@prisma/client";
+import { AllocationEntryType, ProjectType } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +29,7 @@ interface AllocationDetail {
   projectId: string;
   projectName: string;
   timecode: string;
+  projectType: ProjectType;
   hours: number;
   entryType: AllocationEntryType;
   notes: string | null;
