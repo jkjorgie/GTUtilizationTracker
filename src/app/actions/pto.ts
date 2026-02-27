@@ -116,6 +116,17 @@ export async function createPTORequest(data: PTOFormData) {
     throw new Error("You can only submit PTO requests for yourself");
   }
 
+  // Managers can only submit for themselves or their direct reports
+  if (session.user.role === "MANAGER" && validated.consultantId !== session.user.consultantId) {
+    const consultant = await prisma.consultant.findUnique({
+      where: { id: validated.consultantId },
+      select: { managerId: true },
+    });
+    if (consultant?.managerId !== session.user.consultantId) {
+      throw new Error("You can only submit PTO for yourself or your direct reports");
+    }
+  }
+
   const pto = await prisma.pTORequest.create({
     data: {
       consultantId: validated.consultantId,
@@ -313,6 +324,67 @@ export async function denyPTORequest(id: string) {
 
   revalidatePath("/pto");
   return updatedPTO;
+}
+
+export async function getConsultantsForPTO() {
+  const session = await auth();
+  if (!session) throw new Error("Unauthorized");
+
+  if (session.user.role === "ADMIN") {
+    return prisma.consultant.findMany({
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    });
+  }
+
+  if (session.user.role === "MANAGER" && session.user.consultantId) {
+    // Self + direct reports
+    return prisma.consultant.findMany({
+      where: {
+        OR: [
+          { id: session.user.consultantId },
+          { managerId: session.user.consultantId },
+        ],
+      },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    });
+  }
+
+  // EMPLOYEE: just themselves
+  if (session.user.consultantId) {
+    return prisma.consultant.findMany({
+      where: { id: session.user.consultantId },
+      select: { id: true, name: true },
+    });
+  }
+
+  return [];
+}
+
+export async function getPendingPTOCount(): Promise<number> {
+  const session = await auth();
+  if (!session) return 0;
+
+  const where: { status: PTOStatus; consultantId?: string | { in: string[] } } = {
+    status: PTOStatus.PENDING,
+  };
+
+  if (session.user.role === "EMPLOYEE") {
+    if (!session.user.consultantId) return 0;
+    where.consultantId = session.user.consultantId;
+  } else if (session.user.role === "MANAGER") {
+    if (!session.user.consultantId) return 0;
+    const directReports = await prisma.consultant.findMany({
+      where: { managerId: session.user.consultantId },
+      select: { id: true },
+    });
+    const directReportIds = directReports.map((c) => c.id);
+    where.consultantId = { in: directReportIds };
+  }
+  // ADMIN: no consultantId filter → all pending
+
+  return prisma.pTORequest.count({ where });
 }
 
 export async function deletePTORequest(id: string) {

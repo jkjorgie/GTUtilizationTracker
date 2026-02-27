@@ -1,10 +1,13 @@
 import { auth } from "@/lib/auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { BarChart3, Users, FolderKanban, Calendar } from "lucide-react";
 import Link from "next/link";
+import { getPendingPTOCount } from "@/app/actions/pto";
 
 export default async function DashboardPage() {
   const session = await auth();
+  const pendingPTOCount = await getPendingPTOCount();
 
   const quickActions = [
     {
@@ -12,12 +15,16 @@ export default async function DashboardPage() {
       description: "View and edit consultant allocations",
       href: "/utilization",
       icon: <BarChart3 className="h-8 w-8" />,
+      badge: null,
     },
     {
       title: "PTO Requests",
-      description: "Submit or manage PTO requests",
+      description: pendingPTOCount > 0
+        ? `${pendingPTOCount} pending request${pendingPTOCount !== 1 ? "s" : ""}`
+        : "Submit or manage PTO requests",
       href: "/pto",
       icon: <Calendar className="h-8 w-8" />,
+      badge: pendingPTOCount > 0 ? pendingPTOCount : null,
     },
     ...(session?.user.role === "ADMIN"
       ? [
@@ -26,12 +33,14 @@ export default async function DashboardPage() {
             description: "Add and edit projects",
             href: "/projects",
             icon: <FolderKanban className="h-8 w-8" />,
+            badge: null,
           },
           {
             title: "Manage Consultants",
             description: "Add and edit consultant records",
             href: "/consultants",
             icon: <Users className="h-8 w-8" />,
+            badge: null,
           },
         ]
       : []),
@@ -53,9 +62,16 @@ export default async function DashboardPage() {
           <Link key={action.href} href={action.href}>
             <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  {action.title}
-                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-sm font-medium">
+                    {action.title}
+                  </CardTitle>
+                  {action.badge !== null && (
+                    <Badge variant="destructive" className="text-xs px-1.5 py-0 h-5">
+                      {action.badge}
+                    </Badge>
+                  )}
+                </div>
                 <div className="text-muted-foreground">{action.icon}</div>
               </CardHeader>
               <CardContent>

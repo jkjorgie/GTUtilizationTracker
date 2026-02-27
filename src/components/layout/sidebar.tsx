@@ -79,9 +79,10 @@ const navItems: NavItem[] = [
 
 interface SidebarProps {
   userRole: UserRole;
+  pendingPTOCount?: number;
 }
 
-export function Sidebar({ userRole }: SidebarProps) {
+export function Sidebar({ userRole, pendingPTOCount = 0 }: SidebarProps) {
   const pathname = usePathname();
 
   const filteredNavItems = navItems.filter(
@@ -97,9 +98,10 @@ export function Sidebar({ userRole }: SidebarProps) {
       <nav className="flex-1 p-4">
         <ul className="space-y-1">
           {filteredNavItems.map((item) => {
-            const isActive = pathname === item.href || 
+            const isActive = pathname === item.href ||
               (item.href !== "/" && pathname.startsWith(item.href));
-            
+            const showBadge = item.href === "/pto" && pendingPTOCount > 0;
+
             return (
               <li key={item.href}>
                 <Link
@@ -112,7 +114,12 @@ export function Sidebar({ userRole }: SidebarProps) {
                   )}
                 >
                   {item.icon}
-                  {item.label}
+                  <span className="flex-1">{item.label}</span>
+                  {showBadge && (
+                    <span className="ml-auto inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full bg-destructive text-white text-xs font-medium">
+                      {pendingPTOCount}
+                    </span>
+                  )}
                 </Link>
               </li>
             );

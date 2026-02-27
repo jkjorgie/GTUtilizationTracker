@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { auth } from "@/lib/auth";
-import { getPTORequests } from "@/app/actions/pto";
-import { getAllConsultants } from "@/app/actions/consultants";
+import { getPTORequests, getConsultantsForPTO } from "@/app/actions/pto";
 import { PTOList } from "@/components/pto/pto-list";
 import { PTOHeader } from "@/components/pto/pto-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -20,7 +19,7 @@ async function PTOContent() {
 
   const [allRequests, consultants] = await Promise.all([
     getPTORequests(),
-    getAllConsultants(),
+    getConsultantsForPTO(),
   ]);
 
   const pendingRequests = allRequests.filter(r => r.status === PTOStatus.PENDING);
