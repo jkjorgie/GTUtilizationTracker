@@ -14,6 +14,8 @@ import {
   BarChart3,
   Shield,
   FileUp,
+  Receipt,
+  Settings,
 } from "lucide-react";
 
 interface NavItem {
@@ -73,6 +75,18 @@ const navItems: NavItem[] = [
     label: "Roles",
     href: "/roles",
     icon: <Shield className="h-5 w-5" />,
+    roles: ["ADMIN"],
+  },
+  {
+    label: "Invoicing",
+    href: "/invoicing",
+    icon: <Receipt className="h-5 w-5" />,
+    roles: ["ADMIN"],
+  },
+  {
+    label: "Settings",
+    href: "/settings",
+    icon: <Settings className="h-5 w-5" />,
     roles: ["ADMIN"],
   },
 ];
