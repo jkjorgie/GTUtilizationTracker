@@ -96,15 +96,6 @@ export async function createProject(data: ProjectFormData) {
 
   const validated = projectSchema.parse(data);
 
-  // Check for duplicate timecode
-  const existing = await prisma.project.findUnique({
-    where: { timecode: validated.timecode },
-  });
-
-  if (existing) {
-    throw new Error("A project with this timecode already exists");
-  }
-
   const project = await prisma.project.create({
     data: {
       client: validated.client,
@@ -136,18 +127,6 @@ export async function updateProject(id: string, data: ProjectFormData) {
   }
 
   const validated = projectSchema.parse(data);
-
-  // Check for duplicate timecode (excluding current project)
-  const existing = await prisma.project.findFirst({
-    where: {
-      timecode: validated.timecode,
-      NOT: { id },
-    },
-  });
-
-  if (existing) {
-    throw new Error("A project with this timecode already exists");
-  }
 
   const project = await prisma.project.update({
     where: { id },

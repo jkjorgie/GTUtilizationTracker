@@ -161,7 +161,7 @@ model Project {
   id          String        @id @default(cuid())
   client      String
   projectName String
-  timecode    String        @unique
+  timecode    String
   type        ProjectType   @default(BILLABLE)
   status      ProjectStatus @default(ACTIVE)
 
