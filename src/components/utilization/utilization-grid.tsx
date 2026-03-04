@@ -97,12 +97,12 @@ export function UtilizationGrid({
     [data.allocations]
   );
 
+  // To restore employee self-editing, replace the body with:
+  //   if (userRole === "ADMIN" || userRole === "MANAGER") return true;
+  //   return consultantId === currentConsultantId;
   const canEdit = useCallback(
-    (consultantId: string) => {
-      if (userRole === "ADMIN" || userRole === "MANAGER") return true;
-      return consultantId === currentConsultantId;
-    },
-    [userRole, currentConsultantId]
+    (_consultantId: string) => userRole === "ADMIN" || userRole === "MANAGER",
+    [userRole]
   );
 
   const allRoles = useMemo(() => {
