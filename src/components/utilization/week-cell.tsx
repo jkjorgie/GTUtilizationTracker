@@ -313,7 +313,9 @@ function ProjectCellEditor({
       setNotes(initialNotes ?? "");
       setError(null);
     }
-  }, [open, projected, actual, initialNotes]);
+  // Intentionally only re-init when the dialog opens (not on prop changes mid-edit)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const handleSave = useCallback(() => {
     setError(null);

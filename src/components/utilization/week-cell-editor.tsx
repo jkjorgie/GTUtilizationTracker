@@ -121,7 +121,10 @@ export function WeekCellEditor({
       setEditedAllocations(Array.from(grouped.values()));
       setError(null);
     }
-  }, [open, details]);
+  // Intentionally only re-init when the dialog opens (not on details prop changes mid-edit,
+  // which would wipe the user's in-progress changes due to parent re-renders)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const getProjectName = (projectId: string) => {
     const project = projects.find(p => p.id === projectId);
