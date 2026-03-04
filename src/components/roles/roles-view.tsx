@@ -88,7 +88,7 @@ export function RolesView({ roles: initialRoles }: RolesViewProps) {
   return (
     <>
       <div>
-        <h1 className="text-3xl font-bold">Role Setup</h1>
+        <h1 className="text-3xl font-bold">Rate Setup</h1>
         <p className="text-muted-foreground">
           Define roles and MSRP rates for consultant assignments
         </p>
@@ -96,7 +96,7 @@ export function RolesView({ roles: initialRoles }: RolesViewProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Roles ({activeCount} active)</CardTitle>
+          <CardTitle>Rates ({activeCount} active)</CardTitle>
           <CardDescription>
             Edit the MSRP rate and active status for each role. Only active roles can be assigned to consultants.
           </CardDescription>
@@ -157,7 +157,7 @@ export function RolesView({ roles: initialRoles }: RolesViewProps) {
       <Dialog open={!!editingRole} onOpenChange={(open) => !open && setEditingRole(null)}>
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
-            <DialogTitle>Edit Role</DialogTitle>
+            <DialogTitle>Edit Rate</DialogTitle>
             <DialogDescription>
               {editingRole && (
                 <>

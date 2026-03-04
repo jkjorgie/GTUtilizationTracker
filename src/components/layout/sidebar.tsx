@@ -72,7 +72,7 @@ const navItems: NavItem[] = [
     roles: ["ADMIN"],
   },
   {
-    label: "Roles",
+    label: "Rates",
     href: "/roles",
     icon: <Shield className="h-5 w-5" />,
     roles: ["ADMIN"],
