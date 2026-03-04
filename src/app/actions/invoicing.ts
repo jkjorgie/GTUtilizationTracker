@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { AllocationEntryType } from "@prisma/client";
+import { AllocationEntryType, OtherInvoiceStatus } from "@prisma/client";
 import { getSystemSetting } from "./system-settings";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -44,6 +44,8 @@ export type OtherInvoiceData = {
   invoiceNumber: string | null;
   description: string | null;
   amount: number;
+  status: OtherInvoiceStatus;
+  invoiceDate: string | null;
 };
 
 export type InvoicingData = {
@@ -257,6 +259,8 @@ export async function getInvoicingData(projectId: string): Promise<InvoicingData
       invoiceNumber: oi.invoiceNumber,
       description: oi.description,
       amount: oi.amount,
+      status: oi.status,
+      invoiceDate: oi.invoiceDate ? oi.invoiceDate.toISOString() : null,
     })),
     headerTotals: { totalBudget, totalUsed, totalProjected, totalRemaining },
   };
@@ -319,6 +323,8 @@ export async function createOtherInvoice(data: {
   invoiceNumber?: string | null;
   description?: string | null;
   amount: number;
+  status?: OtherInvoiceStatus;
+  invoiceDate?: string | null;
 }) {
   const session = await auth();
   if (!session) throw new Error("Unauthorized");
@@ -330,6 +336,8 @@ export async function createOtherInvoice(data: {
       invoiceNumber: data.invoiceNumber ?? null,
       description: data.description ?? null,
       amount: data.amount,
+      status: data.status ?? OtherInvoiceStatus.EXPECTED,
+      invoiceDate: data.invoiceDate ? new Date(data.invoiceDate) : null,
     },
   });
 
@@ -343,6 +351,8 @@ export async function updateOtherInvoice(
     invoiceNumber?: string | null;
     description?: string | null;
     amount?: number;
+    status?: OtherInvoiceStatus;
+    invoiceDate?: string | null;
   }
 ) {
   const session = await auth();
@@ -355,6 +365,8 @@ export async function updateOtherInvoice(
       invoiceNumber: data.invoiceNumber ?? null,
       description: data.description ?? null,
       ...(data.amount !== undefined && { amount: data.amount }),
+      ...(data.status !== undefined && { status: data.status }),
+      invoiceDate: data.invoiceDate ? new Date(data.invoiceDate) : null,
     },
   });
 

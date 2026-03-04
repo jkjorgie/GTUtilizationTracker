@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { ChevronDown, ChevronRight, Pencil, Trash2, Plus } from "lucide-react";
+import { OtherInvoiceStatus } from "@prisma/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -304,12 +305,19 @@ function OtherInvoicesSection({
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ date: "", invoiceNumber: "", description: "", amount: "" });
+  const [form, setForm] = useState({
+    date: "",
+    invoiceNumber: "",
+    description: "",
+    amount: "",
+    status: OtherInvoiceStatus.EXPECTED as OtherInvoiceStatus,
+    invoiceDate: "",
+  });
   const [isPending, startTransition] = useTransition();
 
   function openNew() {
     setEditingId(null);
-    setForm({ date: "", invoiceNumber: "", description: "", amount: "" });
+    setForm({ date: "", invoiceNumber: "", description: "", amount: "", status: OtherInvoiceStatus.EXPECTED, invoiceDate: "" });
     setDialogOpen(true);
   }
 
@@ -320,6 +328,8 @@ function OtherInvoicesSection({
       invoiceNumber: inv.invoiceNumber ?? "",
       description: inv.description ?? "",
       amount: inv.amount.toString(),
+      status: inv.status,
+      invoiceDate: inv.invoiceDate ? formatDateInput(inv.invoiceDate) : "",
     });
     setDialogOpen(true);
   }
@@ -338,6 +348,8 @@ function OtherInvoicesSection({
             invoiceNumber: form.invoiceNumber || null,
             description: form.description || null,
             amount,
+            status: form.status,
+            invoiceDate: form.invoiceDate || null,
           });
         } else {
           await createOtherInvoice({
@@ -346,6 +358,8 @@ function OtherInvoicesSection({
             invoiceNumber: form.invoiceNumber || null,
             description: form.description || null,
             amount,
+            status: form.status,
+            invoiceDate: form.invoiceDate || null,
           });
         }
         toast.success(editingId ? "Invoice updated" : "Invoice added");
@@ -383,7 +397,9 @@ function OtherInvoicesSection({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Date</TableHead>
+              <TableHead>Expected Date</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Invoice Date</TableHead>
               <TableHead>Invoice #</TableHead>
               <TableHead>Description</TableHead>
               <TableHead className="text-right">Amount</TableHead>
@@ -393,7 +409,7 @@ function OtherInvoicesSection({
           <TableBody>
             {invoices.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground py-6">
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-6">
                   No other invoices yet.
                 </TableCell>
               </TableRow>
@@ -401,6 +417,23 @@ function OtherInvoicesSection({
               invoices.map((inv) => (
                 <TableRow key={inv.id} className={isPending ? "opacity-60" : ""}>
                   <TableCell className="font-mono text-sm">{formatDate(inv.date)}</TableCell>
+                  <TableCell>
+                    <Badge
+                      variant="secondary"
+                      className={
+                        inv.status === OtherInvoiceStatus.INVOICED
+                          ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200"
+                          : inv.status === OtherInvoiceStatus.REQUESTED
+                          ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200"
+                          : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200"
+                      }
+                    >
+                      {inv.status.charAt(0) + inv.status.slice(1).toLowerCase()}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="font-mono text-sm text-muted-foreground">
+                    {inv.invoiceDate ? formatDate(inv.invoiceDate) : "—"}
+                  </TableCell>
                   <TableCell>{inv.invoiceNumber ?? "—"}</TableCell>
                   <TableCell>{inv.description ?? "—"}</TableCell>
                   <TableCell className="text-right font-mono">
@@ -441,11 +474,37 @@ function OtherInvoicesSection({
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label>Date *</Label>
+                <Label>Expected Date *</Label>
                 <Input
                   type="date"
                   value={form.date}
                   onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Status</Label>
+                <Select
+                  value={form.status}
+                  onValueChange={(v) => setForm((f) => ({ ...f, status: v as OtherInvoiceStatus }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={OtherInvoiceStatus.EXPECTED}>Expected</SelectItem>
+                    <SelectItem value={OtherInvoiceStatus.REQUESTED}>Requested</SelectItem>
+                    <SelectItem value={OtherInvoiceStatus.INVOICED}>Invoiced</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Invoice Date</Label>
+                <Input
+                  type="date"
+                  value={form.invoiceDate}
+                  onChange={(e) => setForm((f) => ({ ...f, invoiceDate: e.target.value }))}
                 />
               </div>
               <div className="space-y-1.5">
@@ -555,11 +614,15 @@ function InvoicePeriodsGrid({
 }
 
 export function InvoicingClient({ projects }: InvoicingClientProps) {
+  const [selectedClient, setSelectedClient] = useState<string>("");
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [data, setData] = useState<InvoicingData | null>(null);
   const [loading, setLoading] = useState(false);
   const [comments, setComments] = useState("");
   const [savingComments, setSavingComments] = useState(false);
+
+  const clients = Array.from(new Set(projects.map((p) => p.client))).sort();
+  const clientProjects = projects.filter((p) => p.client === selectedClient);
 
   const loadData = useCallback(async (projectId: string) => {
     if (!projectId) return;
@@ -574,6 +637,12 @@ export function InvoicingClient({ projects }: InvoicingClientProps) {
       setLoading(false);
     }
   }, []);
+
+  function handleClientChange(client: string) {
+    setSelectedClient(client);
+    setSelectedProjectId("");
+    setData(null);
+  }
 
   async function handleProjectChange(projectId: string) {
     setSelectedProjectId(projectId);
@@ -599,20 +668,43 @@ export function InvoicingClient({ projects }: InvoicingClientProps) {
 
   return (
     <div className="space-y-6">
-      {/* Project Selector */}
-      <div className="w-96">
-        <Select value={selectedProjectId} onValueChange={handleProjectChange}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select a project..." />
-          </SelectTrigger>
-          <SelectContent>
-            {projects.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.client} — {p.projectName} ({p.timecode})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      {/* Client → Project Selectors */}
+      <div className="flex gap-4 items-end">
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">Client</label>
+          <Select value={selectedClient} onValueChange={handleClientChange}>
+            <SelectTrigger className="w-64">
+              <SelectValue placeholder="Select a client..." />
+            </SelectTrigger>
+            <SelectContent>
+              {clients.map((client) => (
+                <SelectItem key={client} value={client}>
+                  {client}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">Project</label>
+          <Select
+            value={selectedProjectId}
+            onValueChange={handleProjectChange}
+            disabled={!selectedClient}
+          >
+            <SelectTrigger className="w-80">
+              <SelectValue placeholder={selectedClient ? "Select a project..." : "Select a client first"} />
+            </SelectTrigger>
+            <SelectContent>
+              {clientProjects.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.projectName} ({p.timecode})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {loading && (
