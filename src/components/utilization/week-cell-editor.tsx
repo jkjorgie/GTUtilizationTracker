@@ -6,6 +6,7 @@ import { AllocationEntryType, ProjectType } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -295,11 +296,12 @@ export function WeekCellEditor({
                         max="80"
                         step="0.5"
                         value={allocation.actualHours}
+                        onFocus={(e) => e.target.select()}
                         onChange={(e) => handleUpdateAllocation(index, 'actualHours', parseFloat(e.target.value) || 0)}
                       />
                     </div>
                   )}
-                  
+
                   {/* Projected Hours - always show but read-only for past weeks */}
                   <div className="space-y-1">
                     <Label className="text-xs">
@@ -312,11 +314,23 @@ export function WeekCellEditor({
                       max="80"
                       step="0.5"
                       value={allocation.projectedHours}
+                      onFocus={(e) => e.target.select()}
                       onChange={(e) => handleUpdateAllocation(index, 'projectedHours', parseFloat(e.target.value) || 0)}
                       disabled={isPast}
                       className={isPast ? "bg-muted" : ""}
                     />
                   </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs">Notes</Label>
+                  <Textarea
+                    value={allocation.notes}
+                    onChange={(e) => handleUpdateAllocation(index, 'notes', e.target.value)}
+                    placeholder="Add a comment..."
+                    className="resize-none text-xs"
+                    rows={2}
+                  />
                 </div>
               </div>
             ))}
@@ -366,6 +380,7 @@ export function WeekCellEditor({
                           max="80"
                           step="0.5"
                           value={newActualHours}
+                          onFocus={(e) => e.target.select()}
                           onChange={(e) => setNewActualHours(parseFloat(e.target.value) || 0)}
                         />
                       </div>
@@ -378,6 +393,7 @@ export function WeekCellEditor({
                         max="80"
                         step="0.5"
                         value={newProjectedHours}
+                        onFocus={(e) => e.target.select()}
                         onChange={(e) => setNewProjectedHours(parseFloat(e.target.value) || 0)}
                       />
                     </div>

@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
 import { updateAllocation, deleteAllocation } from "@/app/actions/utilization";
 import { WeekCellEditor } from "./week-cell-editor";
@@ -259,6 +260,7 @@ interface ProjectWeekCellProps {
   week: string;
   projected: number;
   actual: number;
+  notes?: string | null;
   projectId: string;
   projectName: string;
   timecode: string;
@@ -274,6 +276,7 @@ function ProjectCellEditor({
   week,
   projected,
   actual,
+  initialNotes,
   projectId,
   projectName,
   timecode,
@@ -286,6 +289,7 @@ function ProjectCellEditor({
   week: string;
   projected: number;
   actual: number;
+  initialNotes?: string | null;
   projectId: string;
   projectName: string;
   timecode: string;
@@ -295,6 +299,7 @@ function ProjectCellEditor({
   const [error, setError] = useState<string | null>(null);
   const [projectedHours, setProjectedHours] = useState(projected);
   const [actualHours, setActualHours] = useState(actual);
+  const [notes, setNotes] = useState(initialNotes ?? "");
 
   const weekDate = parseISO(week);
   const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 0 });
@@ -305,23 +310,24 @@ function ProjectCellEditor({
     if (open) {
       setProjectedHours(projected);
       setActualHours(actual);
+      setNotes(initialNotes ?? "");
       setError(null);
     }
-  }, [open, projected, actual]);
+  }, [open, projected, actual, initialNotes]);
 
   const handleSave = useCallback(() => {
     setError(null);
     startTransition(async () => {
       try {
         if (projectedHours > 0) {
-          await updateAllocation(consultantId, week, projectId, projectedHours, AllocationEntryType.PROJECTED);
+          await updateAllocation(consultantId, week, projectId, projectedHours, AllocationEntryType.PROJECTED, notes || undefined);
         } else if (projected > 0) {
           await deleteAllocation(consultantId, projectId, week, AllocationEntryType.PROJECTED);
         }
 
         if (!isFuture) {
           if (actualHours > 0) {
-            await updateAllocation(consultantId, week, projectId, actualHours, AllocationEntryType.ACTUAL);
+            await updateAllocation(consultantId, week, projectId, actualHours, AllocationEntryType.ACTUAL, notes || undefined);
           } else if (actual > 0) {
             await deleteAllocation(consultantId, projectId, week, AllocationEntryType.ACTUAL);
           }
@@ -333,7 +339,7 @@ function ProjectCellEditor({
         setError(err instanceof Error ? err.message : "Failed to save");
       }
     });
-  }, [consultantId, week, projectId, projectedHours, actualHours, projected, actual, isFuture, onOpenChange, onSave]);
+  }, [consultantId, week, projectId, projectedHours, actualHours, notes, projected, actual, isFuture, onOpenChange, onSave]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -363,6 +369,7 @@ function ProjectCellEditor({
               max="80"
               step="0.5"
               value={projectedHours}
+              onFocus={(e) => e.target.select()}
               onChange={(e) => setProjectedHours(parseFloat(e.target.value) || 0)}
               disabled={isPast}
               className={isPast ? "bg-muted" : ""}
@@ -377,10 +384,21 @@ function ProjectCellEditor({
                 max="80"
                 step="0.5"
                 value={actualHours}
+                onFocus={(e) => e.target.select()}
                 onChange={(e) => setActualHours(parseFloat(e.target.value) || 0)}
               />
             </div>
           )}
+          <div className="space-y-1.5">
+            <Label className="text-sm">Notes</Label>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Add a comment..."
+              className="resize-none"
+              rows={2}
+            />
+          </div>
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
@@ -403,6 +421,7 @@ export function ProjectWeekCell({
   week,
   projected,
   actual,
+  notes,
   projectId,
   projectName,
   timecode,
@@ -469,6 +488,7 @@ export function ProjectWeekCell({
               Projected: {projected}h
               {isPast && <> &middot; Actual: {actual}h</>}
             </div>
+            {notes && <div className="text-xs text-muted-foreground">{notes}</div>}
           </div>
         </TooltipContent>
       </Tooltip>
@@ -482,6 +502,7 @@ export function ProjectWeekCell({
           week={week}
           projected={projected}
           actual={actual}
+          initialNotes={notes}
           projectId={projectId}
           projectName={projectName}
           timecode={timecode}
