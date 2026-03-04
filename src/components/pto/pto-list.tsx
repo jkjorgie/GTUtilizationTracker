@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { PTOStatus, PTORequest, Consultant, User } from "@prisma/client";
 import {
   Table,
@@ -141,8 +141,8 @@ export function PTOList({ ptoRequests, userRole, currentConsultantId }: PTOListP
                 return (
                   <TableRow key={pto.id}>
                     <TableCell className="font-medium">{pto.consultant.name}</TableCell>
-                    <TableCell>{format(new Date(pto.startDate), "MMM d, yyyy")}</TableCell>
-                    <TableCell>{format(new Date(pto.endDate), "MMM d, yyyy")}</TableCell>
+                    <TableCell>{format(parseISO(pto.startDate.toISOString().split("T")[0]), "MMM d, yyyy")}</TableCell>
+                    <TableCell>{format(parseISO(pto.endDate.toISOString().split("T")[0]), "MMM d, yyyy")}</TableCell>
                     <TableCell>
                       {pto.allDay ? (
                         "All Day"
