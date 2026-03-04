@@ -265,7 +265,9 @@ export async function approvePTORequest(id: string) {
           weekStart: startOfWeek(weekStart, { weekStartsOn: 0 }),
           hours: weekHours,
           entryType,
-          notes: `PTO: ${pto.startDate.toLocaleDateString()} - ${pto.endDate.toLocaleDateString()}`,
+          notes: pto.allDay
+            ? `PTO: ${pto.startDate.toLocaleDateString()} - ${pto.endDate.toLocaleDateString()}`
+            : `PTO: ${pto.startDate.toLocaleDateString()} - ${pto.endDate.toLocaleDateString()} (${pto.startTime} - ${pto.endTime})`,
           createdById: session.user.id,
         },
       });

@@ -50,7 +50,7 @@ interface WeekCellProps {
   displayMode: DisplayMode;
   projects: Array<{ id: string; projectName: string; timecode: string }>;
   roleDefinitions: Array<{ id: string; name: string; msrpRate: number }>;
-  onSave?: (allocations: Array<{ projectId: string; projectedHours: number; actualHours: number }>) => void;
+  onSave?: (allocations: Array<{ projectId: string; projectedHours: number; actualHours: number; notes: string }>) => void;
 }
 
 function DiagonalLine({ className }: { className?: string }) {
@@ -265,7 +265,7 @@ interface ProjectWeekCellProps {
   projectName: string;
   timecode: string;
   editable: boolean;
-  onSave?: (projectedHours: number, actualHours: number) => void;
+  onSave?: (projectedHours: number, actualHours: number, notes: string) => void;
 }
 
 function ProjectCellEditor({
@@ -293,7 +293,7 @@ function ProjectCellEditor({
   projectId: string;
   projectName: string;
   timecode: string;
-  onSave?: (projectedHours: number, actualHours: number) => void;
+  onSave?: (projectedHours: number, actualHours: number, notes: string) => void;
 }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -335,7 +335,7 @@ function ProjectCellEditor({
           }
         }
 
-        onSave?.(projectedHours, actualHours);
+        onSave?.(projectedHours, actualHours, notes);
         onOpenChange(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to save");

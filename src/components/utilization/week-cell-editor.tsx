@@ -48,7 +48,7 @@ interface WeekCellEditorProps {
   details: AllocationDetail[];
   projects: Array<{ id: string; projectName: string; timecode: string }>;
   roleDefinitions: Array<{ id: string; name: string; msrpRate: number }>;
-  onSave?: (allocations: Array<{ projectId: string; projectedHours: number; actualHours: number }>) => void;
+  onSave?: (allocations: Array<{ projectId: string; projectedHours: number; actualHours: number; notes: string }>) => void;
 }
 
 export function WeekCellEditor({
@@ -237,6 +237,7 @@ export function WeekCellEditor({
           projectId: a.projectId,
           projectedHours: a.projectedHours,
           actualHours: a.actualHours,
+          notes: a.notes,
         })));
         onOpenChange(false);
       } catch (err) {

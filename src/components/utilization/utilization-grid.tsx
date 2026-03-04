@@ -163,6 +163,7 @@ export function UtilizationGrid({
       projectType: ProjectType;
       projectedHours: number;
       actualHours: number;
+      notes?: string | null;
     }>,
     replaceAll: boolean
   ) => {
@@ -190,7 +191,7 @@ export function UtilizationGrid({
             projectType: update.projectType,
             hours: update.projectedHours,
             entryType: AllocationEntryType.PROJECTED,
-            notes: null,
+            notes: update.notes ?? null,
             createdBy: null,
             updatedAt: new Date(),
           });
@@ -203,7 +204,7 @@ export function UtilizationGrid({
             projectType: update.projectType,
             hours: update.actualHours,
             entryType: AllocationEntryType.ACTUAL,
-            notes: null,
+            notes: update.notes ?? null,
             createdBy: null,
             updatedAt: new Date(),
           });
@@ -376,6 +377,7 @@ export function UtilizationGrid({
                                     projectType: proj?.type ?? ProjectType.BILLABLE,
                                     projectedHours: a.projectedHours,
                                     actualHours: a.actualHours,
+                                    notes: a.notes,
                                   };
                                 }),
                                 true
@@ -421,7 +423,7 @@ export function UtilizationGrid({
                                 projectName={project.projectName}
                                 timecode={project.timecode}
                                 editable={editable}
-                                onSave={(projectedHours, actualHours) => {
+                                onSave={(projectedHours, actualHours, notes) => {
                                   updateLocalAllocations(
                                     consultant.id,
                                     week,
@@ -432,6 +434,7 @@ export function UtilizationGrid({
                                       projectType: projects.find(p => p.id === project.projectId)?.type ?? ProjectType.BILLABLE,
                                       projectedHours,
                                       actualHours,
+                                      notes,
                                     }],
                                     false
                                   );
