@@ -20,6 +20,7 @@ export interface UtilizationData {
     roles: string[];
     billingRoleIds: string[];
     groups: string[];
+    managerName: string | null;
   }>;
   weeks: string[]; // ISO date strings of week starts
   allocations: Record<string, Record<string, {
@@ -80,6 +81,7 @@ export async function getUtilizationData(
           roleDefinition: { select: { name: true } },
         },
       },
+      manager: { select: { name: true } },
     },
     orderBy: { name: "asc" },
   });
@@ -200,6 +202,7 @@ export async function getUtilizationData(
       roles: c.billingRoles.map((br) => br.roleDefinition.name),
       billingRoleIds: c.billingRoles.map((br) => br.roleDefinitionId),
       groups: c.groups.map((g) => g.group),
+      managerName: c.manager?.name ?? null,
     })),
     weeks: weekStrings,
     allocations: allocationMap,

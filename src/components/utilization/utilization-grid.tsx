@@ -70,7 +70,7 @@ export function UtilizationGrid({
   );
 
   const filteredConsultants = useMemo(() => {
-    return data.consultants.filter((consultant) => {
+    const filtered = data.consultants.filter((consultant) => {
       if (roleFilter !== "all" && !consultant.roles.includes(roleFilter)) {
         return false;
       }
@@ -87,6 +87,19 @@ export function UtilizationGrid({
         }
       }
       return true;
+    });
+
+    // Sort: primary = first group (alphabetical), secondary = manager name, tertiary = consultant name
+    return filtered.sort((a, b) => {
+      const groupA = [...a.groups].sort()[0] ?? "";
+      const groupB = [...b.groups].sort()[0] ?? "";
+      if (groupA !== groupB) return groupA.localeCompare(groupB);
+
+      const managerA = a.managerName ?? "";
+      const managerB = b.managerName ?? "";
+      if (managerA !== managerB) return managerA.localeCompare(managerB);
+
+      return a.name.localeCompare(b.name);
     });
   }, [data.consultants, data.consultantProjects, roleFilter, groupFilter, searchFilter, projectFilter]);
 
