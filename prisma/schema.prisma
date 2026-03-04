@@ -74,6 +74,7 @@ enum PTOStatus {
   PENDING
   APPROVED
   DENIED
+  CANCELLED
 }
 
 enum SalesManager {

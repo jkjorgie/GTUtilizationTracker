@@ -28,8 +28,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, Check, X, Trash2 } from "lucide-react";
-import { approvePTORequest, denyPTORequest, deletePTORequest } from "@/app/actions/pto";
+import { MoreHorizontal, Check, X, Ban } from "lucide-react";
+import { approvePTORequest, denyPTORequest, cancelPTORequest } from "@/app/actions/pto";
 
 type PTOWithRelations = PTORequest & {
   consultant: { id: string; name: string };
@@ -46,11 +46,12 @@ const statusColors: Record<PTOStatus, string> = {
   PENDING: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200",
   APPROVED: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200",
   DENIED: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200",
+  CANCELLED: "bg-gray-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400",
 };
 
 export function PTOList({ ptoRequests, userRole, currentConsultantId }: PTOListProps) {
   const [actioningId, setActioningId] = useState<string | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [cancelId, setCancelId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -82,15 +83,15 @@ export function PTOList({ ptoRequests, userRole, currentConsultantId }: PTOListP
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteId) return;
+  const handleCancel = async () => {
+    if (!cancelId) return;
     setLoading(true);
     setError(null);
     try {
-      await deletePTORequest(deleteId);
-      setDeleteId(null);
+      await cancelPTORequest(cancelId);
+      setCancelId(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete");
+      setError(err instanceof Error ? err.message : "Failed to cancel");
     } finally {
       setLoading(false);
     }
@@ -126,9 +127,16 @@ export function PTOList({ ptoRequests, userRole, currentConsultantId }: PTOListP
               </TableRow>
             ) : (
               ptoRequests.map((pto) => {
-                const canDelete = pto.status === "PENDING" && 
-                  (canManage || pto.consultantId === currentConsultantId);
+                // Managers and admins can action (approve/deny) pending requests.
+                // Managers only see their own + direct reports via getPTORequests,
+                // so visibility implies manage permission.
                 const canAction = canManage && pto.status === "PENDING";
+
+                // Cancel is available on PENDING and APPROVED requests.
+                // Employees can only cancel their own; managers/admins can cancel all they can see.
+                const canCancel =
+                  (pto.status === "PENDING" || pto.status === "APPROVED") &&
+                  (canManage || pto.consultantId === currentConsultantId);
 
                 return (
                   <TableRow key={pto.id}>
@@ -146,14 +154,14 @@ export function PTOList({ ptoRequests, userRole, currentConsultantId }: PTOListP
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary" className={statusColors[pto.status]}>
-                        {pto.status}
+                        {pto.status.charAt(0) + pto.status.slice(1).toLowerCase()}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       {pto.approvedBy?.email || "-"}
                     </TableCell>
                     <TableCell>
-                      {(canAction || canDelete) && (
+                      {(canAction || canCancel) && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" disabled={loading}>
@@ -163,14 +171,14 @@ export function PTOList({ ptoRequests, userRole, currentConsultantId }: PTOListP
                           <DropdownMenuContent align="end">
                             {canAction && (
                               <>
-                                <DropdownMenuItem 
+                                <DropdownMenuItem
                                   onClick={() => handleApprove(pto.id)}
                                   className="text-green-600"
                                 >
                                   <Check className="mr-2 h-4 w-4" />
                                   Approve
                                 </DropdownMenuItem>
-                                <DropdownMenuItem 
+                                <DropdownMenuItem
                                   onClick={() => handleDeny(pto.id)}
                                   className="text-red-600"
                                 >
@@ -179,13 +187,13 @@ export function PTOList({ ptoRequests, userRole, currentConsultantId }: PTOListP
                                 </DropdownMenuItem>
                               </>
                             )}
-                            {canDelete && (
+                            {canCancel && (
                               <DropdownMenuItem
-                                onClick={() => setDeleteId(pto.id)}
+                                onClick={() => setCancelId(pto.id)}
                                 className="text-destructive focus:text-destructive"
                               >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
+                                <Ban className="mr-2 h-4 w-4" />
+                                Cancel
                               </DropdownMenuItem>
                             )}
                           </DropdownMenuContent>
@@ -200,22 +208,19 @@ export function PTOList({ ptoRequests, userRole, currentConsultantId }: PTOListP
         </Table>
       </div>
 
-      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+      <AlertDialog open={!!cancelId} onOpenChange={(open) => !open && setCancelId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete PTO Request</AlertDialogTitle>
+            <AlertDialogTitle>Cancel PTO Request</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this PTO request? This action cannot be undone.
+              Are you sure you want to cancel this PTO request? If it was already approved, the
+              time will be removed from the utilization grid.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
-            <Button 
-              onClick={handleDelete} 
-              disabled={loading}
-              variant="destructive"
-            >
-              {loading ? "Deleting..." : "Delete"}
+            <AlertDialogCancel disabled={loading}>Back</AlertDialogCancel>
+            <Button onClick={handleCancel} disabled={loading} variant="destructive">
+              {loading ? "Cancelling..." : "Cancel Request"}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

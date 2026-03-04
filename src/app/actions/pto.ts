@@ -387,33 +387,104 @@ export async function getPendingPTOCount(): Promise<number> {
   return prisma.pTORequest.count({ where });
 }
 
-export async function deletePTORequest(id: string) {
+export async function cancelPTORequest(id: string) {
   const session = await auth();
-  if (!session) {
-    throw new Error("Unauthorized");
+  if (!session) throw new Error("Unauthorized");
+
+  const pto = await prisma.pTORequest.findUnique({ where: { id } });
+  if (!pto) throw new Error("PTO request not found");
+
+  if (pto.status === PTOStatus.DENIED || pto.status === PTOStatus.CANCELLED) {
+    throw new Error("Cannot cancel a denied or already cancelled request");
   }
 
-  const pto = await prisma.pTORequest.findUnique({
+  // Authorization: employees own only; managers self + direct reports; admins all
+  if (session.user.role === "EMPLOYEE") {
+    if (pto.consultantId !== session.user.consultantId) {
+      throw new Error("You can only cancel your own PTO requests");
+    }
+  } else if (session.user.role === "MANAGER") {
+    if (pto.consultantId !== session.user.consultantId) {
+      const consultant = await prisma.consultant.findUnique({
+        where: { id: pto.consultantId },
+        select: { managerId: true },
+      });
+      if (consultant?.managerId !== session.user.consultantId) {
+        throw new Error("You can only cancel PTO for yourself or your direct reports");
+      }
+    }
+  }
+
+  // If the request was approved, reverse its allocations from utilization
+  if (pto.status === PTOStatus.APPROVED) {
+    const ptoProject = await prisma.project.findFirst({
+      where: { timecode: "INT-PTO-001" },
+    });
+
+    if (ptoProject) {
+      let hoursPerDay = 8;
+      if (!pto.allDay && pto.startTime && pto.endTime) {
+        const [sh, sm] = pto.startTime.split(":").map(Number);
+        const [eh, em] = pto.endTime.split(":").map(Number);
+        hoursPerDay = eh - sh + (em - sm) / 60;
+      }
+
+      const weeks = eachWeekOfInterval(
+        { start: pto.startDate, end: pto.endDate },
+        { weekStartsOn: 0 }
+      );
+      const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 0 });
+
+      for (const weekStart of weeks) {
+        const weekEnd = addDays(weekStart, 6);
+        let weekDays = 0;
+        let checkDate = new Date(Math.max(weekStart.getTime(), pto.startDate.getTime()));
+        const weekEndDate = new Date(Math.min(weekEnd.getTime(), pto.endDate.getTime()));
+        while (checkDate <= weekEndDate) {
+          const dow = checkDate.getDay();
+          if (dow !== 0 && dow !== 6) weekDays++;
+          checkDate = addDays(checkDate, 1);
+        }
+
+        const weekHours = weekDays * hoursPerDay;
+        if (weekHours <= 0) continue;
+
+        const wsDate = startOfWeek(weekStart, { weekStartsOn: 0 });
+        const entryType = isAfter(wsDate, currentWeekStart)
+          ? AllocationEntryType.PROJECTED
+          : AllocationEntryType.ACTUAL;
+
+        const existing = await prisma.allocation.findUnique({
+          where: {
+            consultantId_projectId_weekStart_entryType: {
+              consultantId: pto.consultantId,
+              projectId: ptoProject.id,
+              weekStart: wsDate,
+              entryType,
+            },
+          },
+        });
+
+        if (existing) {
+          const newHours = Math.max(0, existing.hours - weekHours);
+          if (newHours === 0) {
+            await prisma.allocation.delete({ where: { id: existing.id } });
+          } else {
+            await prisma.allocation.update({
+              where: { id: existing.id },
+              data: { hours: newHours },
+            });
+          }
+        }
+      }
+    }
+  }
+
+  await prisma.pTORequest.update({
     where: { id },
-  });
-
-  if (!pto) {
-    throw new Error("PTO request not found");
-  }
-
-  // Only allow deletion of pending requests
-  if (pto.status !== PTOStatus.PENDING) {
-    throw new Error("Can only delete pending PTO requests");
-  }
-
-  // Employees can only delete their own PTO
-  if (session.user.role === "EMPLOYEE" && pto.consultantId !== session.user.consultantId) {
-    throw new Error("You can only delete your own PTO requests");
-  }
-
-  await prisma.pTORequest.delete({
-    where: { id },
+    data: { status: PTOStatus.CANCELLED },
   });
 
   revalidatePath("/pto");
+  revalidatePath("/utilization");
 }
