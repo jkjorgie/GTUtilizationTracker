@@ -130,8 +130,8 @@ export async function createPTORequest(data: PTOFormData) {
   const pto = await prisma.pTORequest.create({
     data: {
       consultantId: validated.consultantId,
-      startDate: new Date(validated.startDate),
-      endDate: new Date(validated.endDate),
+      startDate: new Date(validated.startDate + "T12:00:00Z"),
+      endDate: new Date(validated.endDate + "T12:00:00Z"),
       allDay: validated.allDay,
       startTime: validated.allDay ? null : validated.startTime,
       endTime: validated.allDay ? null : validated.endTime,
