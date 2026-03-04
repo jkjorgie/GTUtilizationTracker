@@ -4,10 +4,16 @@ import { Badge } from "@/components/ui/badge";
 import { BarChart3, Users, FolderKanban, Calendar } from "lucide-react";
 import Link from "next/link";
 import { getPendingPTOCount } from "@/app/actions/pto";
+import { getDashboardReportData } from "@/app/actions/reports";
+import { DashboardReports } from "@/components/reports/dashboard-reports";
+import { UserRole } from "@prisma/client";
 
 export default async function DashboardPage() {
   const session = await auth();
-  const pendingPTOCount = await getPendingPTOCount();
+  const [pendingPTOCount, reportData] = await Promise.all([
+    getPendingPTOCount(),
+    getDashboardReportData({ weeksBack: 12, weeksForward: 4 }),
+  ]);
 
   const quickActions = [
     {
@@ -81,6 +87,11 @@ export default async function DashboardPage() {
           </Link>
         ))}
       </div>
+
+      <DashboardReports
+        initialData={reportData}
+        userRole={(session?.user.role ?? "EMPLOYEE") as UserRole}
+      />
 
       <Card>
         <CardHeader>
