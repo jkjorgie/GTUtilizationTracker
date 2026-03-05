@@ -528,6 +528,7 @@ export function ProjectForm({
                           <SelectContent>
                             <SelectItem value={ProjectStatus.ACTIVE}>Active</SelectItem>
                             <SelectItem value={ProjectStatus.INACTIVE}>Inactive</SelectItem>
+                            <SelectItem value={ProjectStatus.ON_DEMAND}>On Demand</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />

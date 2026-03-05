@@ -63,6 +63,7 @@ enum ProjectType {
 enum ProjectStatus {
   ACTIVE
   INACTIVE
+  ON_DEMAND
 }
 
 enum AllocationEntryType {
