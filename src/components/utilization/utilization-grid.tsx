@@ -265,17 +265,19 @@ export function UtilizationGrid({
         ))}
       </div>
 
-      <div className="border rounded-lg overflow-x-auto relative">
+      <div className="border rounded-lg overflow-auto max-h-[calc(100vh-240px)] relative">
         {isPending && (
           <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-50">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         )}
-        
+
           <div className="min-w-max">
+            {/* Sticky header wrapper — both rows freeze on vertical scroll */}
+            <div className="sticky top-0 z-20">
             {/* Header Row 1: Months */}
             <div className="flex border-b bg-muted/50">
-              <div className="w-64 min-w-64 p-2 border-r font-medium text-sm sticky left-0 bg-muted/50 z-20">
+              <div className="w-64 min-w-64 p-2 border-r font-medium text-sm sticky left-0 bg-muted/50 z-30">
                 Name
               </div>
               {Array.from(monthGroups.entries()).map(([monthKey, weeks]) => (
@@ -291,7 +293,7 @@ export function UtilizationGrid({
 
             {/* Header Row 2: Week dates */}
             <div className="flex border-b bg-muted/30">
-              <div className="w-64 min-w-64 p-2 border-r sticky left-0 bg-muted/30 z-20" />
+              <div className="w-64 min-w-64 p-2 border-r sticky left-0 bg-muted/30 z-30" />
               {data.weeks.map((week) => (
                 <div
                   key={week}
@@ -300,6 +302,7 @@ export function UtilizationGrid({
                   {format(parseISO(week), "M/d")}
                 </div>
               ))}
+            </div>
             </div>
 
             {/* Data Rows */}
