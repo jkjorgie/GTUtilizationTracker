@@ -410,6 +410,7 @@ export function UtilizationGrid({
                             const actual = projectDetails
                               .filter(d => d.entryType === AllocationEntryType.ACTUAL)
                               .reduce((sum, d) => sum + d.hours, 0);
+                            const notes = projectDetails.find(d => d.notes)?.notes ?? null;
 
                             return (
                               <ProjectWeekCell
@@ -419,6 +420,7 @@ export function UtilizationGrid({
                                 week={week}
                                 projected={projected}
                                 actual={actual}
+                                notes={notes}
                                 projectId={project.projectId}
                                 projectName={project.projectName}
                                 timecode={project.timecode}
