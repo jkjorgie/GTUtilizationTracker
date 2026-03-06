@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Consultant, ConsultantGroup, ConsultantBillingRole, OvertimePreference } from "@prisma/client";
 import {
   Table,
@@ -27,7 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { deleteConsultant } from "@/app/actions/consultants";
 import { ConsultantForm } from "./consultant-form";
 import { type UserOption } from "./consultants-view";
@@ -53,11 +53,55 @@ const otPreferenceLabels: Record<OvertimePreference, string> = {
   OPEN: "Open",
 };
 
+type SortKey = "name" | "standardHours" | "overtimePreference" | "overtimeHoursAvailable" | "manager";
+type SortDir = "asc" | "desc";
+
+function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey | null; sortDir: SortDir }) {
+  if (sortKey !== col) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
+  return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+}
+
 export function ConsultantTable({ consultants, users, roleDefinitions }: ConsultantTableProps) {
   const [editingConsultant, setEditingConsultant] = useState<ConsultantWithRelations | null>(null);
   const [deletingConsultant, setDeletingConsultant] = useState<ConsultantWithRelations | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  const sortedConsultants = useMemo(() => {
+    if (!sortKey) return consultants;
+    return [...consultants].sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case "name":
+          cmp = a.name.localeCompare(b.name);
+          break;
+        case "standardHours":
+          cmp = a.standardHours - b.standardHours;
+          break;
+        case "overtimePreference":
+          cmp = a.overtimePreference.localeCompare(b.overtimePreference);
+          break;
+        case "overtimeHoursAvailable":
+          cmp = a.overtimeHoursAvailable - b.overtimeHoursAvailable;
+          break;
+        case "manager":
+          cmp = (a.manager?.name ?? "").localeCompare(b.manager?.name ?? "");
+          break;
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [consultants, sortKey, sortDir]);
 
   const handleDelete = async () => {
     if (!deletingConsultant) return;
@@ -80,25 +124,35 @@ export function ConsultantTable({ consultants, users, roleDefinitions }: Consult
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("name")}>
+                <span className="flex items-center gap-1">Name <SortIcon col="name" sortKey={sortKey} sortDir={sortDir} /></span>
+              </TableHead>
               <TableHead>Groups</TableHead>
               <TableHead>Billing Roles</TableHead>
-              <TableHead className="text-right">Std Hours</TableHead>
-              <TableHead>OT Pref</TableHead>
-              <TableHead className="text-right">OT Hours</TableHead>
-              <TableHead>Manager</TableHead>
+              <TableHead className="text-right cursor-pointer select-none" onClick={() => handleSort("standardHours")}>
+                <span className="flex items-center justify-end gap-1">Std Hours <SortIcon col="standardHours" sortKey={sortKey} sortDir={sortDir} /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("overtimePreference")}>
+                <span className="flex items-center gap-1">OT Pref <SortIcon col="overtimePreference" sortKey={sortKey} sortDir={sortDir} /></span>
+              </TableHead>
+              <TableHead className="text-right cursor-pointer select-none" onClick={() => handleSort("overtimeHoursAvailable")}>
+                <span className="flex items-center justify-end gap-1">OT Hours <SortIcon col="overtimeHoursAvailable" sortKey={sortKey} sortDir={sortDir} /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("manager")}>
+                <span className="flex items-center gap-1">Manager <SortIcon col="manager" sortKey={sortKey} sortDir={sortDir} /></span>
+              </TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {consultants.length === 0 ? (
+            {sortedConsultants.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   No consultants found
                 </TableCell>
               </TableRow>
             ) : (
-              consultants.map((consultant) => (
+              sortedConsultants.map((consultant) => (
                 <TableRow key={consultant.id}>
                   <TableCell className="font-medium">
                     <div>

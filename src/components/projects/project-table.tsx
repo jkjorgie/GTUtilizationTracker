@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { ProjectType, ProjectStatus, HealthStatus } from "@prisma/client";
 import {
   Table,
@@ -29,7 +29,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { FileText, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, FileText, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { deleteProject } from "@/app/actions/projects";
 import { getProjectMembers } from "@/app/actions/project-members";
 import { ProjectForm, ProjectWithRelations } from "./project-form";
@@ -65,12 +65,50 @@ const healthDotColors: Record<HealthStatus, string> = {
   GREEN: "bg-green-500",
 };
 
+type SortKey = "client" | "projectName" | "timecode" | "pm" | "type" | "status";
+type SortDir = "asc" | "desc";
+
+function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey | null; sortDir: SortDir }) {
+  if (sortKey !== col) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
+  return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+}
+
 export function ProjectTable({ projects, pemConsultants, roleDefinitions, allConsultants }: ProjectTableProps) {
   const [editingProject, setEditingProject] = useState<ProjectWithRelations | null>(null);
   const [editFormOpen, setEditFormOpen] = useState(false);
   const [deletingProject, setDeletingProject] = useState<ProjectRow | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  const sortedProjects = useMemo(() => {
+    if (!sortKey) return projects;
+    return [...projects].sort((a, b) => {
+      let aVal: string;
+      let bVal: string;
+      switch (sortKey) {
+        case "client": aVal = a.client; bVal = b.client; break;
+        case "projectName": aVal = a.projectName; bVal = b.projectName; break;
+        case "timecode": aVal = a.timecode; bVal = b.timecode; break;
+        case "pm": aVal = a.projectManager?.name ?? ""; bVal = b.projectManager?.name ?? ""; break;
+        case "type": aVal = a.type; bVal = b.type; break;
+        case "status": aVal = a.status; bVal = b.status; break;
+        default: return 0;
+      }
+      const cmp = aVal.localeCompare(bVal);
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [projects, sortKey, sortDir]);
 
   const handleOpenEdit = useCallback(async (project: ProjectRow) => {
     // Open form immediately with project data, then lazily load members
@@ -105,24 +143,36 @@ export function ProjectTable({ projects, pemConsultants, roleDefinitions, allCon
           <TableHeader>
             <TableRow>
               <TableHead className="w-[24px]"></TableHead>
-              <TableHead>Client</TableHead>
-              <TableHead>Project</TableHead>
-              <TableHead>Timecode</TableHead>
-              <TableHead>PM</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("client")}>
+                <span className="flex items-center gap-1">Client <SortIcon col="client" sortKey={sortKey} sortDir={sortDir} /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("projectName")}>
+                <span className="flex items-center gap-1">Project <SortIcon col="projectName" sortKey={sortKey} sortDir={sortDir} /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("timecode")}>
+                <span className="flex items-center gap-1">Timecode <SortIcon col="timecode" sortKey={sortKey} sortDir={sortDir} /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("pm")}>
+                <span className="flex items-center gap-1">PM <SortIcon col="pm" sortKey={sortKey} sortDir={sortDir} /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("type")}>
+                <span className="flex items-center gap-1">Type <SortIcon col="type" sortKey={sortKey} sortDir={sortDir} /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("status")}>
+                <span className="flex items-center gap-1">Status <SortIcon col="status" sortKey={sortKey} sortDir={sortDir} /></span>
+              </TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {projects.length === 0 ? (
+            {sortedProjects.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   No projects found
                 </TableCell>
               </TableRow>
             ) : (
-              projects.map((project) => (
+              sortedProjects.map((project) => (
                 <TableRow key={project.id}>
                   <TableCell className="pr-0">
                     {project.healthStatus ? (

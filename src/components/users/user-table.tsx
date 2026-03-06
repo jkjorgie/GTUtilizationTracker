@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { format } from "date-fns";
 import { UserRole } from "@prisma/client";
 import {
@@ -37,7 +37,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { MoreHorizontal, Pencil, Trash2, KeyRound, Check } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, MoreHorizontal, Pencil, Trash2, KeyRound, Check } from "lucide-react";
 import { deleteUser, resetUserPassword } from "@/app/actions/users";
 import { UserForm } from "./user-form";
 
@@ -67,6 +67,14 @@ const roleColors: Record<UserRole, string> = {
   EMPLOYEE: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200",
 };
 
+type SortKey = "email" | "role" | "consultant" | "createdAt";
+type SortDir = "asc" | "desc";
+
+function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey | null; sortDir: SortDir }) {
+  if (sortKey !== col) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
+  return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+}
+
 export function UserTable({ users, consultants, currentUserId }: UserTableProps) {
   const [editingUser, setEditingUser] = useState<{
     id: string;
@@ -81,6 +89,39 @@ export function UserTable({ users, consultants, currentUserId }: UserTableProps)
   const [isDeleting, setIsDeleting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  const sortedUsers = useMemo(() => {
+    if (!sortKey) return users;
+    return [...users].sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case "email":
+          cmp = a.email.localeCompare(b.email);
+          break;
+        case "role":
+          cmp = a.role.localeCompare(b.role);
+          break;
+        case "consultant":
+          cmp = (a.consultant?.name ?? "").localeCompare(b.consultant?.name ?? "");
+          break;
+        case "createdAt":
+          cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          break;
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [users, sortKey, sortDir]);
 
   const handleDelete = async () => {
     if (!deletingUser) return;
@@ -132,22 +173,30 @@ export function UserTable({ users, consultants, currentUserId }: UserTableProps)
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Email</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Linked Consultant</TableHead>
-              <TableHead>Created</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("email")}>
+                <span className="flex items-center gap-1">Email <SortIcon col="email" sortKey={sortKey} sortDir={sortDir} /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("role")}>
+                <span className="flex items-center gap-1">Role <SortIcon col="role" sortKey={sortKey} sortDir={sortDir} /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("consultant")}>
+                <span className="flex items-center gap-1">Linked Consultant <SortIcon col="consultant" sortKey={sortKey} sortDir={sortDir} /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("createdAt")}>
+                <span className="flex items-center gap-1">Created <SortIcon col="createdAt" sortKey={sortKey} sortDir={sortDir} /></span>
+              </TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users.length === 0 ? (
+            {sortedUsers.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                   No users found
                 </TableCell>
               </TableRow>
             ) : (
-              users.map((user) => (
+              sortedUsers.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">
                     {user.email}
@@ -232,8 +281,8 @@ export function UserTable({ users, consultants, currentUserId }: UserTableProps)
             <AlertDialogCancel onClick={() => setError(null)} disabled={isDeleting}>
               Cancel
             </AlertDialogCancel>
-            <Button 
-              onClick={handleDelete} 
+            <Button
+              onClick={handleDelete}
               disabled={isDeleting}
               variant="destructive"
             >
@@ -259,7 +308,7 @@ export function UserTable({ users, consultants, currentUserId }: UserTableProps)
               Set a new password for {resetPasswordUser?.email}
             </DialogDescription>
           </DialogHeader>
-          
+
           {error && (
             <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-md">
               {error}
@@ -288,8 +337,8 @@ export function UserTable({ users, consultants, currentUserId }: UserTableProps)
             <Button variant="outline" onClick={() => setResetPasswordUser(null)} disabled={isResetting}>
               Cancel
             </Button>
-            <Button 
-              onClick={handleResetPassword} 
+            <Button
+              onClick={handleResetPassword}
               disabled={isResetting || !newPassword || newPassword.length < 8 || resetSuccess}
             >
               {isResetting ? "Resetting..." : "Reset Password"}

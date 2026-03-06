@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { format, parseISO } from "date-fns";
 import { PTOStatus, PTORequest, Consultant, User } from "@prisma/client";
 import {
@@ -28,7 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, Check, X, Ban } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, MoreHorizontal, Check, X, Ban } from "lucide-react";
 import { approvePTORequest, denyPTORequest, cancelPTORequest } from "@/app/actions/pto";
 
 type PTOWithRelations = PTORequest & {
@@ -49,13 +49,60 @@ const statusColors: Record<PTOStatus, string> = {
   CANCELLED: "bg-gray-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400",
 };
 
+type SortKey = "employee" | "startDate" | "endDate" | "type" | "status" | "approvedBy";
+type SortDir = "asc" | "desc";
+
+function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey | null; sortDir: SortDir }) {
+  if (sortKey !== col) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
+  return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+}
+
 export function PTOList({ ptoRequests, userRole, currentConsultantId }: PTOListProps) {
   const [actioningId, setActioningId] = useState<string | null>(null);
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const canManage = userRole === "ADMIN" || userRole === "MANAGER";
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  const sortedRequests = useMemo(() => {
+    if (!sortKey) return ptoRequests;
+    return [...ptoRequests].sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case "employee":
+          cmp = a.consultant.name.localeCompare(b.consultant.name);
+          break;
+        case "startDate":
+          cmp = new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+          break;
+        case "endDate":
+          cmp = new Date(a.endDate).getTime() - new Date(b.endDate).getTime();
+          break;
+        case "type":
+          cmp = (a.allDay ? "All Day" : a.startTime ?? "").localeCompare(b.allDay ? "All Day" : b.startTime ?? "");
+          break;
+        case "status":
+          cmp = a.status.localeCompare(b.status);
+          break;
+        case "approvedBy":
+          cmp = (a.approvedBy?.email ?? "").localeCompare(b.approvedBy?.email ?? "");
+          break;
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [ptoRequests, sortKey, sortDir]);
 
   const handleApprove = async (id: string) => {
     setLoading(true);
@@ -109,24 +156,36 @@ export function PTOList({ ptoRequests, userRole, currentConsultantId }: PTOListP
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Employee</TableHead>
-              <TableHead>Start Date</TableHead>
-              <TableHead>End Date</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Approved By</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("employee")}>
+                <span className="flex items-center gap-1">Employee <SortIcon col="employee" sortKey={sortKey} sortDir={sortDir} /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("startDate")}>
+                <span className="flex items-center gap-1">Start Date <SortIcon col="startDate" sortKey={sortKey} sortDir={sortDir} /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("endDate")}>
+                <span className="flex items-center gap-1">End Date <SortIcon col="endDate" sortKey={sortKey} sortDir={sortDir} /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("type")}>
+                <span className="flex items-center gap-1">Type <SortIcon col="type" sortKey={sortKey} sortDir={sortDir} /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("status")}>
+                <span className="flex items-center gap-1">Status <SortIcon col="status" sortKey={sortKey} sortDir={sortDir} /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("approvedBy")}>
+                <span className="flex items-center gap-1">Approved By <SortIcon col="approvedBy" sortKey={sortKey} sortDir={sortDir} /></span>
+              </TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {ptoRequests.length === 0 ? (
+            {sortedRequests.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   No PTO requests found
                 </TableCell>
               </TableRow>
             ) : (
-              ptoRequests.map((pto) => {
+              sortedRequests.map((pto) => {
                 // Managers and admins can action (approve/deny) pending requests.
                 // Managers only see their own + direct reports via getPTORequests,
                 // so visibility implies manage permission.
