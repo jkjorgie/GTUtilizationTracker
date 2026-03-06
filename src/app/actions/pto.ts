@@ -139,6 +139,24 @@ export async function createPTORequest(data: PTOFormData) {
     },
   });
 
+  // Auto-approve for admin users with no manager submitting for themselves.
+  // Look up consultantId from DB since the JWT may be stale.
+  if (session.user.role === "ADMIN") {
+    const userRecord = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { consultantId: true },
+    });
+    if (userRecord?.consultantId && userRecord.consultantId === validated.consultantId) {
+      const consultant = await prisma.consultant.findUnique({
+        where: { id: validated.consultantId },
+        select: { managerId: true },
+      });
+      if (!consultant?.managerId) {
+        return approvePTORequest(pto.id);
+      }
+    }
+  }
+
   revalidatePath("/pto");
   return pto;
 }
@@ -156,6 +174,25 @@ export async function approvePTORequest(id: string) {
 
   if (!pto) {
     throw new Error("PTO request not found");
+  }
+
+  // Prevent self-approval unless the approver is an admin with no manager.
+  // Look up consultantId from DB since the JWT may be stale.
+  const approverUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { consultantId: true },
+  });
+  if (approverUser?.consultantId && pto.consultantId === approverUser.consultantId) {
+    if (session.user.role !== "ADMIN") {
+      throw new Error("You cannot approve your own PTO request");
+    }
+    const selfConsultant = await prisma.consultant.findUnique({
+      where: { id: approverUser.consultantId },
+      select: { managerId: true },
+    });
+    if (selfConsultant?.managerId) {
+      throw new Error("You cannot approve your own PTO request");
+    }
   }
 
   if (session.user.role === "MANAGER") {
