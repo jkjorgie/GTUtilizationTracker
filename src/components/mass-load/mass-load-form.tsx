@@ -79,6 +79,10 @@ export function MassLoadForm({ consultants, projects }: MassLoadFormProps) {
   const [previewing, setPreviewing] = useState(false);
   const [preview, setPreview] = useState<PreviewData | null>(null);
   const [selectAll, setSelectAll] = useState(false);
+  const [selectedClient, setSelectedClient] = useState("");
+
+  const clients = Array.from(new Set(projects.map((p) => p.client))).sort();
+  const clientProjects = projects.filter((p) => p.client === selectedClient);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -153,6 +157,7 @@ export function MassLoadForm({ consultants, projects }: MassLoadFormProps) {
       setPreview(null);
       form.reset();
       setSelectAll(false);
+      setSelectedClient("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -247,22 +252,51 @@ export function MassLoadForm({ consultants, projects }: MassLoadFormProps) {
                 )}
               />
 
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Client</label>
+                <Select
+                  value={selectedClient}
+                  onValueChange={(client) => {
+                    setSelectedClient(client);
+                    form.setValue("projectId", "", { shouldValidate: false });
+                    setPreview(null);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a client…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((client) => (
+                      <SelectItem key={client} value={client}>
+                        {client}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <FormField
                 control={form.control}
                 name="projectId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Timecode / Project</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <FormLabel>Project</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={!selectedClient}
+                    >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select project" />
+                          <SelectValue
+                            placeholder={selectedClient ? "Select a project…" : "Select a client first"}
+                          />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {projects.map((project) => (
+                        {clientProjects.map((project) => (
                           <SelectItem key={project.id} value={project.id}>
-                            {project.timecode} - {project.projectName}
+                            {project.projectName}
                           </SelectItem>
                         ))}
                       </SelectContent>
