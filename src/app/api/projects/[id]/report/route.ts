@@ -39,8 +39,9 @@ export async function GET(
 
   const htmlPath = path.join(
     process.cwd(),
-    "demo-data",
-    "Weekly Client Report 3 blank.html"
+    "public",
+    "report-templates",
+    "weekly-client-report.html"
   );
   let html = await fs.readFile(htmlPath, "utf-8");
 
