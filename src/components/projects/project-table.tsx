@@ -16,6 +16,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -28,7 +29,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { FileText, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { deleteProject } from "@/app/actions/projects";
 import { getProjectMembers } from "@/app/actions/project-members";
 import { ProjectForm, ProjectWithRelations } from "./project-form";
@@ -161,6 +162,13 @@ export function ProjectTable({ projects, pemConsultants, roleDefinitions, allCon
                           <Pencil className="mr-2 h-4 w-4" />
                           Edit
                         </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => window.open(`/api/projects/${project.id}/report`, "_blank")}
+                        >
+                          <FileText className="mr-2 h-4 w-4" />
+                          Reports &amp; Schedule
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem
                           onClick={() => setDeletingProject(project)}
                           className="text-destructive focus:text-destructive"
