@@ -101,6 +101,7 @@ export function ProjectTable({ projects, pemConsultants, roleDefinitions, allCon
 
   return (
     <>
+      <div className="text-xs text-muted-foreground mb-2">debug-v3</div>
       <div className="rounded-md border">
         <Table>
           <TableHeader>
