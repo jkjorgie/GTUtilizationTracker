@@ -39,6 +39,7 @@ export interface UtilizationData {
     }>;
   }>>;
   consultantProjects: Record<string, Array<{ projectId: string; projectName: string; timecode: string }>>;
+  consultantProjectRoles: Record<string, Record<string, string[]>>;
 }
 
 export async function getUtilizationData(
@@ -61,12 +62,12 @@ export async function getUtilizationData(
   const consultantWhere: Record<string, unknown> = {};
   if (session.user.role === "EMPLOYEE") {
     if (!session.user.consultantId) {
-      return { consultants: [], weeks: weekStrings, allocations: {}, consultantProjects: {} };
+      return { consultants: [], weeks: weekStrings, allocations: {}, consultantProjects: {}, consultantProjectRoles: {} };
     }
     consultantWhere.id = session.user.consultantId;
   } else if (session.user.role === "MANAGER") {
     if (!session.user.consultantId) {
-      return { consultants: [], weeks: weekStrings, allocations: {}, consultantProjects: {} };
+      return { consultants: [], weeks: weekStrings, allocations: {}, consultantProjects: {}, consultantProjectRoles: {} };
     }
     consultantWhere.managerId = session.user.consultantId;
   }
@@ -194,6 +195,30 @@ export async function getUtilizationData(
     consultantProjectsMap[id].sort((a, b) => a.timecode.localeCompare(b.timecode));
   }
 
+  // Build consultant → project → roles map from ProjectMember records
+  const projectMemberRows = await prisma.projectMember.findMany({
+    where: { consultantId: { in: visibleConsultantIds } },
+    select: {
+      consultantId: true,
+      projectId: true,
+      roleDefinition: { select: { name: true } },
+    },
+  });
+
+  const consultantProjectRolesMap: Record<string, Record<string, string[]>> = {};
+  for (const pm of projectMemberRows) {
+    if (!consultantProjectRolesMap[pm.consultantId]) {
+      consultantProjectRolesMap[pm.consultantId] = {};
+    }
+    if (!consultantProjectRolesMap[pm.consultantId][pm.projectId]) {
+      consultantProjectRolesMap[pm.consultantId][pm.projectId] = [];
+    }
+    const roleName = pm.roleDefinition?.name;
+    if (roleName && !consultantProjectRolesMap[pm.consultantId][pm.projectId].includes(roleName)) {
+      consultantProjectRolesMap[pm.consultantId][pm.projectId].push(roleName);
+    }
+  }
+
   return {
     consultants: consultants.map((c) => ({
       id: c.id,
@@ -207,6 +232,7 @@ export async function getUtilizationData(
     weeks: weekStrings,
     allocations: allocationMap,
     consultantProjects: consultantProjectsMap,
+    consultantProjectRoles: consultantProjectRolesMap,
   };
 }
 

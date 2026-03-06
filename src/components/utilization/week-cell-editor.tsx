@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { updateAllocation, deleteAllocation } from "@/app/actions/utilization";
-import { upsertProjectMember } from "@/app/actions/project-members";
+import { createProjectMember } from "@/app/actions/project-members";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -188,7 +188,7 @@ export function WeekCellEditor({
         // Upsert ProjectMember role for any newly-added project that had a role selected
         for (const allocation of editedAllocations) {
           if (allocation.roleDefinitionId !== undefined && allocation.roleDefinitionId !== null) {
-            await upsertProjectMember(allocation.projectId, consultantId, allocation.roleDefinitionId, null);
+            await createProjectMember(allocation.projectId, consultantId, allocation.roleDefinitionId, null);
           }
         }
 

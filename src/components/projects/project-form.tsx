@@ -44,7 +44,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { createProject, updateProject } from "@/app/actions/projects";
-import { upsertProjectMember, removeProjectMember, seedMemberAllocations } from "@/app/actions/project-members";
+import { createProjectMember, updateProjectMember, removeProjectMember, seedMemberAllocations } from "@/app/actions/project-members";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Pencil, Plus, Trash2, X } from "lucide-react";
 
@@ -272,15 +272,11 @@ export function ProjectForm({
       setAddMemberError("Please select a resource");
       return;
     }
-    if (members.some((m) => m.consultantId === newMemberConsultantId)) {
-      setAddMemberError("This resource is already on the project");
-      return;
-    }
     setSavingMember(true);
     setAddMemberError(null);
     try {
       const rate = newMemberRate ? parseFloat(newMemberRate) : null;
-      await upsertProjectMember(
+      const created = await createProjectMember(
         currentProject.id,
         newMemberConsultantId,
         newMemberRoleId || null,
@@ -305,7 +301,7 @@ export function ProjectForm({
         {
           consultantId: newMemberConsultantId,
           consultantName: consultant?.name ?? "",
-          memberId: null,
+          memberId: created.id,
           roleDefinitionId: newMemberRoleId || null,
           roleDefinitionName: role?.name ?? null,
           msrpRate: role?.msrpRate ?? null,
@@ -327,21 +323,19 @@ export function ProjectForm({
     }
   }, [currentProject, newMemberConsultantId, newMemberRoleId, newMemberRate, newMemberWeeklyHours, newMemberFromDate, newMemberToDate, members, allConsultants, roleDefinitions]);
 
-  const handleSaveMemberEdit = useCallback(async (consultantId: string) => {
-    if (!currentProject) return;
+  const handleSaveMemberEdit = useCallback(async (memberId: string) => {
     setSavingMember(true);
     try {
       const rate = editRate ? parseFloat(editRate) : null;
-      await upsertProjectMember(
-        currentProject.id,
-        consultantId,
+      await updateProjectMember(
+        memberId,
         editRoleId || null,
         rate != null && !isNaN(rate) ? rate : null
       );
       const role = roleDefinitions.find((r) => r.id === editRoleId);
       setMembers((prev) =>
         prev.map((m) =>
-          m.consultantId === consultantId
+          m.memberId === memberId
             ? {
                 ...m,
                 roleDefinitionId: editRoleId || null,
@@ -358,17 +352,16 @@ export function ProjectForm({
     } finally {
       setSavingMember(false);
     }
-  }, [currentProject, editRoleId, editRate, roleDefinitions]);
+  }, [editRoleId, editRate, roleDefinitions]);
 
-  const handleRemoveMember = useCallback(async (consultantId: string) => {
-    if (!currentProject) return;
+  const handleRemoveMember = useCallback(async (memberId: string) => {
     try {
-      await removeProjectMember(currentProject.id, consultantId);
-      setMembers((prev) => prev.filter((m) => m.consultantId !== consultantId));
+      await removeProjectMember(memberId);
+      setMembers((prev) => prev.filter((m) => m.memberId !== memberId));
     } catch {
       // silent
     }
-  }, [currentProject]);
+  }, []);
 
   const onSubmit = async (data: FormData) => {
     setError(null);
@@ -420,9 +413,8 @@ export function ProjectForm({
     form.handleSubmit(onSubmit)();
   };
 
-  const availableConsultants = allConsultants.filter(
-    (c) => !members.some((m) => m.consultantId === c.id)
-  );
+  // All consultants are available to add (duplicates allowed for different rates)
+  const availableConsultants = allConsultants;
 
   // Role options filtered to the selected/editing consultant's billing roles
   const addMemberRoleOptions = newMemberConsultantId
@@ -434,7 +426,8 @@ export function ProjectForm({
 
   const editMemberRoleOptions = editingMemberId
     ? roleDefinitions.filter((rd) => {
-        const c = allConsultants.find((c) => c.id === editingMemberId);
+        const editingMember = members.find((m) => m.memberId === editingMemberId);
+        const c = editingMember ? allConsultants.find((c) => c.id === editingMember.consultantId) : null;
         return c ? c.billingRoleIds.includes(rd.id) : true;
       })
     : roleDefinitions;
@@ -892,12 +885,12 @@ export function ProjectForm({
                             </TableCell>
                           </TableRow>
                         )}
-                        {members.map((member) => (
-                          <TableRow key={member.consultantId}>
+                        {members.map((member, idx) => (
+                          <TableRow key={member.memberId ?? `alloc-${member.consultantId}-${idx}`}>
                             <TableCell className="font-medium">
                               {member.consultantName}
                             </TableCell>
-                            {editingMemberId === member.consultantId ? (
+                            {member.memberId && editingMemberId === member.memberId ? (
                               <>
                                 <TableCell>
                                   <Select value={editRoleId || "__none__"} onValueChange={handleEditRoleChange}>
@@ -930,7 +923,7 @@ export function ProjectForm({
                                       size="sm"
                                       variant="ghost"
                                       className="h-7 px-2 text-xs"
-                                      onClick={() => handleSaveMemberEdit(member.consultantId)}
+                                      onClick={() => handleSaveMemberEdit(member.memberId!)}
                                       disabled={savingMember}
                                     >
                                       Save
@@ -960,30 +953,34 @@ export function ProjectForm({
                                 </TableCell>
                                 <TableCell>
                                   <div className="flex gap-1 justify-end">
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      className="h-7 w-7"
-                                      onClick={() => {
-                                        setEditingMemberId(member.consultantId);
-                                        setEditRoleId(member.roleDefinitionId ?? "");
-                                        setEditRate(
-                                          member.billingRate?.toString() ??
-                                          member.msrpRate?.toString() ??
-                                          ""
-                                        );
-                                      }}
-                                    >
-                                      <Pencil className="h-3 w-3" />
-                                    </Button>
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      className="h-7 w-7 text-destructive hover:text-destructive"
-                                      onClick={() => handleRemoveMember(member.consultantId)}
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
+                                    {member.memberId && (
+                                      <>
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          className="h-7 w-7"
+                                          onClick={() => {
+                                            setEditingMemberId(member.memberId!);
+                                            setEditRoleId(member.roleDefinitionId ?? "");
+                                            setEditRate(
+                                              member.billingRate?.toString() ??
+                                              member.msrpRate?.toString() ??
+                                              ""
+                                            );
+                                          }}
+                                        >
+                                          <Pencil className="h-3 w-3" />
+                                        </Button>
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          className="h-7 w-7 text-destructive hover:text-destructive"
+                                          onClick={() => handleRemoveMember(member.memberId!)}
+                                        >
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      </>
+                                    )}
                                   </div>
                                 </TableCell>
                               </>

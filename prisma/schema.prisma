@@ -254,8 +254,6 @@ model ProjectMember {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  @@unique([projectId, consultantId])
 }
 
 model SystemSetting {

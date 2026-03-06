@@ -192,6 +192,10 @@ export async function getActiveProjects() {
       projectName: true,
       timecode: true,
       type: true,
+      status: true,
+      startDate: true,
+      endDate: true,
+      projectManager: { select: { name: true } },
     },
   });
 }

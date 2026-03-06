@@ -2,21 +2,52 @@
 
 import { useState, useMemo, useCallback, useTransition } from "react";
 import { format, parseISO, addWeeks } from "date-fns";
-import { AllocationEntryType, ProjectType } from "@prisma/client";
+import { AllocationEntryType, ProjectStatus, ProjectType } from "@prisma/client";
 import { UtilizationData, getUtilizationData } from "@/app/actions/utilization";
 import { groupWeeksByMonth, getFirstFullWeekOfMonth } from "@/lib/utils";
 import { WeekCell, ProjectWeekCell, type DisplayMode } from "./week-cell";
 import { GridFilters } from "./grid-filters";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Loader2, ChevronDown, ChevronRight } from "lucide-react";
 
 interface UtilizationGridProps {
   initialData: UtilizationData;
-  projects: Array<{ id: string; projectName: string; timecode: string; type: ProjectType }>;
+  projects: Array<{
+    id: string;
+    client: string;
+    projectName: string;
+    timecode: string;
+    type: ProjectType;
+    status: ProjectStatus;
+    startDate: Date | null;
+    endDate: Date | null;
+    projectManager: { name: string } | null;
+  }>;
   roleDefinitions: Array<{ id: string; name: string; msrpRate: number }>;
   userRole: string;
   currentConsultantId?: string | null;
 }
+
+const TYPE_BORDER_COLOR: Record<ProjectType, string> = {
+  [ProjectType.BILLABLE]: "#3b82f6",   // blue-500
+  [ProjectType.ASSIGNED]: "#22c55e",   // green-500
+  [ProjectType.FILLER]: "#9ca3af",     // gray-400
+  [ProjectType.PROJECTED]: "#f59e0b",  // amber-500
+};
+
+const TYPE_LABELS: Record<ProjectType, string> = {
+  [ProjectType.BILLABLE]: "Billable",
+  [ProjectType.ASSIGNED]: "Assigned",
+  [ProjectType.FILLER]: "Filler",
+  [ProjectType.PROJECTED]: "Projected",
+};
+
+const STATUS_LABELS: Record<ProjectStatus, string> = {
+  [ProjectStatus.ACTIVE]: "Active",
+  [ProjectStatus.INACTIVE]: "Inactive",
+  [ProjectStatus.ON_DEMAND]: "On Demand",
+};
 
 export function UtilizationGrid({
   initialData,
@@ -394,13 +425,75 @@ export function UtilizationGrid({
                     {/* Expanded Project Rows */}
                     {isExpanded && consultantProjectsList.map((project) => {
                       const editable = canEdit(consultant.id);
+                      const projectInfo = projects.find(p => p.id === project.projectId);
+                      const projectType = projectInfo?.type ?? ProjectType.BILLABLE;
+                      const roles = data.consultantProjectRoles[consultant.id]?.[project.projectId] ?? [];
                       return (
                         <div key={project.projectId} className="flex border-b bg-muted/5">
                           {/* Project name column */}
-                          <div className="w-64 min-w-64 px-2 py-1.5 border-r sticky left-0 bg-muted/5 z-10 flex items-center">
-                            <span className="text-xs text-muted-foreground pl-5 truncate">
-                              {project.timecode} - {project.projectName}
-                            </span>
+                          <div
+                            className="w-64 min-w-64 border-r sticky left-0 bg-muted/5 z-10 flex items-center border-l-4"
+                            style={{ borderLeftColor: TYPE_BORDER_COLOR[projectType] }}
+                          >
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="w-full text-left px-2 py-1.5 pl-4">
+                                  <span className="text-xs text-muted-foreground hover:text-foreground truncate block">
+                                    {project.projectName}
+                                  </span>
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-72 text-sm" align="start" side="right">
+                                <div className="space-y-2">
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">Client</p>
+                                    <p className="font-medium">{projectInfo?.client ?? "—"}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">Project</p>
+                                    <p className="font-medium">{project.projectName}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">Timecode</p>
+                                    <p className="font-mono text-xs">{project.timecode}</p>
+                                  </div>
+                                  {roles.length > 0 && (
+                                    <div>
+                                      <p className="text-xs text-muted-foreground">Role</p>
+                                      <p>{roles.join(", ")}</p>
+                                    </div>
+                                  )}
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">PM</p>
+                                    <p>{projectInfo?.projectManager?.name ?? "—"}</p>
+                                  </div>
+                                  {(projectInfo?.startDate || projectInfo?.endDate) && (
+                                    <div>
+                                      <p className="text-xs text-muted-foreground">Period</p>
+                                      <p>
+                                        {projectInfo.startDate ? format(new Date(projectInfo.startDate), "MMM d, yyyy") : "—"}
+                                        {" – "}
+                                        {projectInfo.endDate ? format(new Date(projectInfo.endDate), "MMM d, yyyy") : "—"}
+                                      </p>
+                                    </div>
+                                  )}
+                                  <div className="flex gap-4">
+                                    <div>
+                                      <p className="text-xs text-muted-foreground">Type</p>
+                                      <p style={{ color: TYPE_BORDER_COLOR[projectType] }} className="font-medium">
+                                        {TYPE_LABELS[projectType]}
+                                      </p>
+                                    </div>
+                                    {projectInfo && (
+                                      <div>
+                                        <p className="text-xs text-muted-foreground">Status</p>
+                                        <p>{STATUS_LABELS[projectInfo.status]}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
                           </div>
 
                           {/* Project week cells */}

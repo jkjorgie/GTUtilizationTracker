@@ -32,7 +32,7 @@ export async function getProjectMembers(projectId: string) {
     orderBy: { createdAt: "asc" },
   });
 
-  const memberMap = new Map(members.map((m) => [m.consultantId, m]));
+  const memberConsultantIds = new Set(members.map((m) => m.consultantId));
 
   // Merge: start with explicitly-added members, then add allocation-only consultants
   const result: Array<{
@@ -46,7 +46,7 @@ export async function getProjectMembers(projectId: string) {
     fromAllocation: boolean;
   }> = [];
 
-  // Explicitly added members first
+  // Explicitly added members first (all rows, including duplicates)
   for (const member of members) {
     result.push({
       consultantId: member.consultantId,
@@ -60,9 +60,9 @@ export async function getProjectMembers(projectId: string) {
     });
   }
 
-  // Add allocation-only consultants (not yet in members)
+  // Add allocation-only consultants (not yet explicitly added)
   for (const alloc of allocations) {
-    if (!memberMap.has(alloc.consultantId)) {
+    if (!memberConsultantIds.has(alloc.consultantId)) {
       result.push({
         consultantId: alloc.consultantId,
         consultantName: alloc.consultant.name,
@@ -79,7 +79,7 @@ export async function getProjectMembers(projectId: string) {
   return result.sort((a, b) => a.consultantName.localeCompare(b.consultantName));
 }
 
-export async function upsertProjectMember(
+export async function createProjectMember(
   projectId: string,
   consultantId: string,
   roleDefinitionId: string | null,
@@ -90,15 +90,10 @@ export async function upsertProjectMember(
     throw new Error("Unauthorized");
   }
 
-  const member = await prisma.projectMember.upsert({
-    where: { projectId_consultantId: { projectId, consultantId } },
-    create: {
+  const member = await prisma.projectMember.create({
+    data: {
       projectId,
       consultantId,
-      roleDefinitionId: roleDefinitionId || null,
-      billingRate: billingRate ?? null,
-    },
-    update: {
       roleDefinitionId: roleDefinitionId || null,
       billingRate: billingRate ?? null,
     },
@@ -112,14 +107,40 @@ export async function upsertProjectMember(
   return member;
 }
 
-export async function removeProjectMember(projectId: string, consultantId: string) {
+export async function updateProjectMember(
+  memberId: string,
+  roleDefinitionId: string | null,
+  billingRate: number | null
+) {
   const session = await auth();
   if (!session || session.user.role !== "ADMIN") {
     throw new Error("Unauthorized");
   }
 
-  await prisma.projectMember.deleteMany({
-    where: { projectId, consultantId },
+  const member = await prisma.projectMember.update({
+    where: { id: memberId },
+    data: {
+      roleDefinitionId: roleDefinitionId || null,
+      billingRate: billingRate ?? null,
+    },
+    include: {
+      consultant: { select: { id: true, name: true } },
+      roleDefinition: { select: { id: true, name: true, msrpRate: true } },
+    },
+  });
+
+  revalidatePath("/projects");
+  return member;
+}
+
+export async function removeProjectMember(memberId: string) {
+  const session = await auth();
+  if (!session || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized");
+  }
+
+  await prisma.projectMember.delete({
+    where: { id: memberId },
   });
 
   revalidatePath("/projects");
