@@ -66,6 +66,7 @@ const healthDotColors: Record<HealthStatus, string> = {
 };
 
 export function ProjectTable({ projects, pemConsultants, roleDefinitions, allConsultants }: ProjectTableProps) {
+  console.log("[ProjectTable] render - version:2 projects:", projects.length);
   const [editingProject, setEditingProject] = useState<ProjectWithRelations | null>(null);
   const [editFormOpen, setEditFormOpen] = useState(false);
   const [deletingProject, setDeletingProject] = useState<ProjectRow | null>(null);
@@ -163,7 +164,7 @@ export function ProjectTable({ projects, pemConsultants, roleDefinitions, allCon
                           Edit
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => window.open(`/api/projects/${project.id}/report`, "_blank")}
+                          onClick={() => { console.log("[ProjectTable] Reports clicked:", project.id); window.open(`/api/projects/${project.id}/report`, "_blank"); }}
                         >
                           <FileText className="mr-2 h-4 w-4" />
                           Reports &amp; Schedule
