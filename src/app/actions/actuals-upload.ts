@@ -186,13 +186,15 @@ export async function processActualsUpload(formData: FormData): Promise<UploadRe
   );
 
   const allConsultants = await prisma.consultant.findMany({
-    select: { id: true, name: true },
+    select: { id: true, name: true, netSuiteName: true },
   });
   const consultantMap = new Map(
-    allConsultants.map((c) => [
-      c.name.toLowerCase().replace(/\s+/g, " "),
-      c.id,
-    ])
+    allConsultants.map((c) => {
+      const matchName = c.netSuiteName?.trim()
+        ? c.netSuiteName.trim()
+        : c.name;
+      return [matchName.toLowerCase().replace(/\s+/g, " "), c.id];
+    })
   );
 
   const matched: Array<{

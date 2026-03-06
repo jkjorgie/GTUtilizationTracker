@@ -126,6 +126,7 @@ model User {
 model Consultant {
   id                    String             @id @default(cuid())
   name                  String
+  netSuiteName          String?
   standardHours         Float              @default(40)
   overtimePreference    OvertimePreference @default(NONE)
   overtimeHoursAvailable Float             @default(0)

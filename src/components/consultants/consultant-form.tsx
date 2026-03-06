@@ -34,6 +34,7 @@ import { X, Search } from "lucide-react";
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
+  netSuiteName: z.string().optional().nullable(),
   standardHours: z.number().min(0).max(80),
   overtimePreference: z.nativeEnum(OvertimePreference),
   overtimeHoursAvailable: z.number().min(0).max(40),
@@ -96,6 +97,7 @@ export function ConsultantForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
+      netSuiteName: "",
       standardHours: 40,
       overtimePreference: OvertimePreference.NONE,
       overtimeHoursAvailable: 0,
@@ -109,6 +111,7 @@ export function ConsultantForm({
     if (open) {
       form.reset({
         name: consultant?.name || "",
+        netSuiteName: consultant?.netSuiteName || "",
         standardHours: consultant?.standardHours || 40,
         overtimePreference: consultant?.overtimePreference || OvertimePreference.NONE,
         overtimeHoursAvailable: consultant?.overtimeHoursAvailable || 0,
@@ -166,6 +169,27 @@ export function ConsultantForm({
                   <FormControl>
                     <Input placeholder="Jane Smith" {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="netSuiteName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>NetSuite Name</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Legal name as it appears in NetSuite"
+                      {...field}
+                      value={field.value ?? ""}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Used to match actuals upload rows. Leave blank to match on Name above.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

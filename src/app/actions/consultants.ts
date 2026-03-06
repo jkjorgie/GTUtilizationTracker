@@ -8,6 +8,7 @@ import { GroupType, OvertimePreference } from "@prisma/client";
 
 const consultantSchema = z.object({
   name: z.string().min(1, "Name is required"),
+  netSuiteName: z.string().optional().nullable(),
   standardHours: z.number().min(0).max(80),
   overtimePreference: z.nativeEnum(OvertimePreference),
   overtimeHoursAvailable: z.number().min(0).max(40),
@@ -99,6 +100,7 @@ export async function createConsultant(data: ConsultantFormData) {
   const consultant = await prisma.consultant.create({
     data: {
       name: validated.name,
+      netSuiteName: validated.netSuiteName || null,
       standardHours: validated.standardHours,
       overtimePreference: validated.overtimePreference,
       overtimeHoursAvailable: validated.overtimeHoursAvailable,
@@ -142,6 +144,7 @@ export async function updateConsultant(id: string, data: ConsultantFormData) {
     where: { id },
     data: {
       name: validated.name,
+      netSuiteName: validated.netSuiteName || null,
       standardHours: validated.standardHours,
       overtimePreference: validated.overtimePreference,
       overtimeHoursAvailable: validated.overtimeHoursAvailable,
