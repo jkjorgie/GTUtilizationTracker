@@ -133,7 +133,9 @@ export function ProjectTable({ projects, pemConsultants, roleDefinitions, allCon
                   </TableCell>
                   <TableCell className="font-medium">{project.client}</TableCell>
                   <TableCell>{project.projectName}</TableCell>
-                  <TableCell className="font-mono text-sm">{project.timecode}</TableCell>
+                  <TableCell className="font-mono text-sm">
+                    {project.timecode.split(",").map((tc) => tc.trim()).filter(Boolean).join(", ")}
+                  </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {project.projectManager?.name ?? "—"}
                   </TableCell>

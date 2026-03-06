@@ -159,6 +159,10 @@ export function ProjectForm({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("basic");
+  const [timecodes, setTimecodes] = useState<string[]>(
+    (project?.timecode ?? "").split(",").map((s) => s.trim()).filter(Boolean)
+  );
+  const [timecodeInput, setTimecodeInput] = useState("");
 
   // Tracks the saved project (set after first save when creating new)
   const [currentProject, setCurrentProject] = useState<ProjectWithRelations | null>(project ?? null);
@@ -222,6 +226,8 @@ export function ProjectForm({
         comments: project?.comments ?? null,
       });
       setMembers(project?.members ?? []);
+      setTimecodes((project?.timecode ?? "").split(",").map((s) => s.trim()).filter(Boolean));
+      setTimecodeInput("");
       setError(null);
       setActiveTab("basic");
       setAddingMember(false);
@@ -245,6 +251,21 @@ export function ProjectForm({
     const role = roleDefinitions.find((r) => r.id === roleId);
     if (role) setEditRate(role.msrpRate.toString());
   }, [roleDefinitions]);
+
+  useEffect(() => {
+    form.setValue("timecode", timecodes.join(", "), { shouldValidate: timecodes.length > 0 });
+  }, [timecodes, form]);
+
+  const addTimecode = useCallback((value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    setTimecodes((prev) => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
+    setTimecodeInput("");
+  }, []);
+
+  const removeTimecode = useCallback((tc: string) => {
+    setTimecodes((prev) => prev.filter((t) => t !== tc));
+  }, []);
 
   const handleAddMember = useCallback(async () => {
     if (!currentProject || !newMemberConsultantId) {
@@ -477,11 +498,50 @@ export function ProjectForm({
                 <FormField
                   control={form.control}
                   name="timecode"
-                  render={({ field }) => (
+                  render={({ field: _field }) => (
                     <FormItem>
                       <FormLabel>Timecode</FormLabel>
                       <FormControl>
-                        <Input placeholder="ACME-WEB-001" {...field} />
+                        <div
+                          className="flex flex-wrap gap-1.5 p-1.5 border rounded-md min-h-9 items-center focus-within:ring-1 focus-within:ring-ring"
+                          onClick={(e) => {
+                            const input = (e.currentTarget as HTMLDivElement).querySelector("input");
+                            input?.focus();
+                          }}
+                        >
+                          {timecodes.map((tc) => (
+                            <span
+                              key={tc}
+                              className="inline-flex items-center gap-1 bg-muted text-foreground rounded px-2 py-0.5 text-sm font-mono"
+                            >
+                              {tc}
+                              <button
+                                type="button"
+                                onClick={() => removeTimecode(tc)}
+                                className="text-muted-foreground hover:text-foreground leading-none"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </span>
+                          ))}
+                          <input
+                            className="flex-1 min-w-24 text-sm outline-none bg-transparent px-1 font-mono placeholder:font-sans placeholder:text-muted-foreground"
+                            placeholder={timecodes.length === 0 ? "ACME-WEB-001" : "Add another…"}
+                            value={timecodeInput}
+                            onChange={(e) => setTimecodeInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === ",") {
+                                e.preventDefault();
+                                addTimecode(timecodeInput);
+                              } else if (e.key === "Backspace" && timecodeInput === "" && timecodes.length > 0) {
+                                removeTimecode(timecodes[timecodes.length - 1]);
+                              }
+                            }}
+                            onBlur={() => {
+                              if (timecodeInput.trim()) addTimecode(timecodeInput);
+                            }}
+                          />
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
