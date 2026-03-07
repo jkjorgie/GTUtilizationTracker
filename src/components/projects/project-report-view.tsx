@@ -46,6 +46,13 @@ import {
   finalizeProjectReport,
 } from "@/app/actions/project-reports";
 
+// Dates from @db.Date fields arrive as midnight UTC; extract the date
+// portion before parsing to avoid off-by-one in US timezones.
+function fmtDate(date: Date | string, fmt: string): string {
+  const iso = new Date(date).toISOString().split("T")[0];
+  return format(parseISO(iso), fmt);
+}
+
 interface ProjectReportViewProps {
   projectContext: ProjectReportContext;
   reports: ProjectReportData[];
@@ -273,8 +280,8 @@ export function ProjectReportView({ projectContext, reports: initialReports }: P
                 {reports.map((r) => (
                   <SelectItem key={r.id} value={r.id}>
                     #{r.reportNumber} ·{" "}
-                    {format(new Date(r.periodStart), "MMM d")}–
-                    {format(new Date(r.periodEnd), "MMM d, yyyy")}
+                    {fmtDate(r.periodStart, "MMM d")}–
+                    {fmtDate(r.periodEnd, "MMM d, yyyy")}
                     {r.isFinalized ? " 🔒" : ""}
                   </SelectItem>
                 ))}
@@ -337,8 +344,8 @@ export function ProjectReportView({ projectContext, reports: initialReports }: P
           {/* Report period */}
           <p className="text-sm text-muted-foreground">
             Report #{current.reportNumber} · Period:{" "}
-            {format(new Date(current.periodStart), "MMM d")}–
-            {format(new Date(current.periodEnd), "MMM d, yyyy")}
+            {fmtDate(current.periodStart, "MMM d")}–
+            {fmtDate(current.periodEnd, "MMM d, yyyy")}
           </p>
 
           {/* Status tiles */}
