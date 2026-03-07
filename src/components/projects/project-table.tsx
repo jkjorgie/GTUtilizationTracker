@@ -184,12 +184,12 @@ export function ProjectTable({ projects, pemConsultants, roleDefinitions, allCon
                       />
                     ) : null}
                   </TableCell>
-                  <TableCell className="font-medium align-top max-w-0 break-words overflow-hidden">{project.client}</TableCell>
-                  <TableCell className="align-top max-w-0 break-words overflow-hidden">{project.projectName}</TableCell>
-                  <TableCell className="font-mono text-sm align-top max-w-0 break-words overflow-hidden">
+                  <TableCell className="font-medium align-top max-w-0 break-words">{project.client}</TableCell>
+                  <TableCell className="align-top max-w-0 break-words">{project.projectName}</TableCell>
+                  <TableCell className="font-mono text-sm align-top max-w-0 break-words">
                     {project.timecode.split(",").map((tc) => tc.trim()).filter(Boolean).join(", ")}
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground align-top max-w-0 break-words overflow-hidden">
+                  <TableCell className="text-sm text-muted-foreground align-top max-w-0 break-words">
                     {project.projectManager?.name ?? "—"}
                   </TableCell>
                   <TableCell>
