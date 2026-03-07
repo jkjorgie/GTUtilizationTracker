@@ -160,6 +160,15 @@ export async function finalizeProjectReport(reportId: string): Promise<ProjectRe
   return parseReportJson(report);
 }
 
+export type ProjectPhase = {
+  id: string;
+  name: string;
+  color: string;
+  percentComplete: number;
+  budgetSpent: number;
+  totalBudget: number;
+};
+
 export type ProjectReportContext = {
   id: string;
   client: string;
@@ -172,7 +181,9 @@ export type ProjectReportContext = {
   projectManager: { name: string } | null;
   budgetSpent: number;
   scheduleStatus: "ON_TRACK" | "AT_RISK" | "BEHIND" | "NOT_SET";
+  budgetStatus: "ON_TRACK" | "AT_RISK" | "OVER" | "NOT_SET";
   overallProgress: number;
+  phases: ProjectPhase[];
 };
 
 export async function getProjectReportContext(projectId: string): Promise<ProjectReportContext> {
@@ -206,34 +217,67 @@ export async function getProjectReportContext(projectId: string): Promise<Projec
     return sum + alloc.hours * rate;
   }, 0);
 
-  // Schedule status + progress from schedule items
+  // Schedule status from ALL schedule items (tasks + milestones)
   const scheduleItems = await prisma.projectScheduleItem.findMany({
     where: { projectId },
   });
 
-  const tasks = scheduleItems.filter((i) => i.type === "TASK");
-
   let scheduleStatus: "ON_TRACK" | "AT_RISK" | "BEHIND" | "NOT_SET" = "NOT_SET";
-  let overallProgress = 0;
 
-  if (tasks.length > 0) {
+  if (scheduleItems.length > 0) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     let behindCount = 0;
     let atRiskCount = 0;
 
-    for (const task of tasks) {
-      if (!task.endDate || task.percentComplete >= 100) continue;
-      const endDate = new Date(task.endDate);
+    for (const item of scheduleItems) {
+      if (!item.endDate || item.percentComplete >= 100) continue;
+      const endDate = new Date(item.endDate);
       const daysOverdue = Math.floor((today.getTime() - endDate.getTime()) / 86400000);
       if (daysOverdue > 7) behindCount++;
       else if (daysOverdue > 0) atRiskCount++;
     }
 
     scheduleStatus = behindCount > 0 ? "BEHIND" : atRiskCount > 0 ? "AT_RISK" : "ON_TRACK";
+  }
+
+  // Phases for budget status + overall progress
+  const phases = await prisma.projectPhase.findMany({
+    where: { projectId },
+    orderBy: { displayOrder: "asc" },
+    select: { id: true, name: true, color: true, percentComplete: true, budgetSpent: true, totalBudget: true },
+  });
+
+  // Budget status: phase-based (spending vs expected given completion)
+  let budgetStatus: "ON_TRACK" | "AT_RISK" | "OVER" | "NOT_SET" = "NOT_SET";
+  const phasesWithBudget = phases.filter((p) => p.totalBudget > 0);
+  if (phasesWithBudget.length > 0) {
+    let overCount = 0;
+    let atRiskCount = 0;
+    for (const phase of phasesWithBudget) {
+      if (phase.budgetSpent > phase.totalBudget) {
+        overCount++;
+      } else if (phase.percentComplete > 0) {
+        const expectedSpend = phase.totalBudget * (phase.percentComplete / 100);
+        if (phase.budgetSpent > expectedSpend * 1.1) atRiskCount++;
+      }
+    }
+    budgetStatus = overCount > 0 ? "OVER" : atRiskCount > 0 ? "AT_RISK" : "ON_TRACK";
+  }
+
+  // Overall progress: average of phases if any, else average of task completion
+  let overallProgress = 0;
+  if (phases.length > 0) {
     overallProgress = Math.round(
-      tasks.reduce((sum, t) => sum + t.percentComplete, 0) / tasks.length
+      phases.reduce((sum, p) => sum + p.percentComplete, 0) / phases.length
     );
+  } else {
+    const tasks = scheduleItems.filter((i) => i.type === "TASK");
+    if (tasks.length > 0) {
+      overallProgress = Math.round(
+        tasks.reduce((sum, t) => sum + t.percentComplete, 0) / tasks.length
+      );
+    }
   }
 
   return {
@@ -248,6 +292,8 @@ export async function getProjectReportContext(projectId: string): Promise<Projec
     projectManager: project.projectManager,
     budgetSpent,
     scheduleStatus,
+    budgetStatus,
     overallProgress,
+    phases,
   };
 }

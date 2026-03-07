@@ -35,16 +35,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Lock, Save, Trash2, Printer } from "lucide-react";
+import { Plus, Lock, Save, Trash2, Printer, Pencil } from "lucide-react";
 import {
   type ProjectReportContext,
   type ProjectReportData,
+  type ProjectPhase,
   type Risk,
   type ActionItem,
   createProjectReport,
   updateProjectReport,
   finalizeProjectReport,
 } from "@/app/actions/project-reports";
+import {
+  createProjectPhase,
+  updateProjectPhase,
+  deleteProjectPhase,
+} from "@/app/actions/project-phases";
 
 // Dates from @db.Date fields arrive as midnight UTC; extract the date
 // portion before parsing to avoid off-by-one in US timezones.
@@ -58,11 +64,6 @@ interface ProjectReportViewProps {
   reports: ProjectReportData[];
 }
 
-const healthColors: Record<string, string> = {
-  GREEN: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200",
-  YELLOW: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200",
-  RED: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200",
-};
 
 const scheduleColors: Record<string, string> = {
   ON_TRACK: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200",
@@ -98,30 +99,131 @@ function formatCurrency(amount: number, currency: string) {
   }).format(amount);
 }
 
+const budgetStatusColors: Record<string, string> = {
+  ON_TRACK: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200",
+  AT_RISK: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200",
+  OVER: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200",
+  NOT_SET: "bg-gray-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400",
+};
+
+const budgetStatusLabels: Record<string, string> = {
+  ON_TRACK: "On Track",
+  AT_RISK: "At Risk",
+  OVER: "Over Budget",
+  NOT_SET: "No Budget",
+};
+
+function ScheduleTile({ status }: { status: string }) {
+  const iconMap: Record<string, string> = {
+    ON_TRACK: "✓", AT_RISK: "⚠", BEHIND: "✕", NOT_SET: "—",
+  };
+  const subMap: Record<string, string> = {
+    ON_TRACK: "All milestones on time",
+    AT_RISK: "Some items at risk",
+    BEHIND: "Items past due",
+    NOT_SET: "No schedule set",
+  };
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Schedule</span>
+      <span className="text-3xl font-extrabold leading-none">{iconMap[status] ?? "—"}</span>
+      <span className="text-xs text-muted-foreground">{subMap[status] ?? ""}</span>
+      <Badge variant="secondary" className={scheduleColors[status]}>
+        {scheduleLabels[status]}
+      </Badge>
+    </div>
+  );
+}
+
 function BudgetTile({ projectContext }: { projectContext: ProjectReportContext }) {
-  const { budget, budgetSpent, currency } = projectContext;
+  const { budget, budgetSpent, currency, budgetStatus, phases, overallProgress } = projectContext;
+  const hasPhaseBudgets = phases.some((p) => p.totalBudget > 0);
+
+  if (hasPhaseBudgets) {
+    const totalBudget = phases.reduce((s, p) => s + p.totalBudget, 0);
+    const totalSpent = phases.reduce((s, p) => s + p.budgetSpent, 0);
+    const budgetUsedPct = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0;
+    return (
+      <div className="flex flex-col gap-1">
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Budget</span>
+        <span className="text-3xl font-extrabold leading-none">
+          {budgetUsedPct}<span className="text-base font-semibold">%</span>
+        </span>
+        <span className="text-xs text-muted-foreground">{overallProgress}% complete</span>
+        <Badge variant="secondary" className={budgetStatusColors[budgetStatus]}>
+          {budgetStatusLabels[budgetStatus]}
+        </Badge>
+      </div>
+    );
+  }
+
   if (!budget) {
     return (
       <div className="flex flex-col gap-1">
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Budget</span>
-        <span className="text-2xl font-bold">—</span>
+        <span className="text-3xl font-extrabold leading-none">—</span>
         <span className="text-xs text-muted-foreground">No budget set</span>
       </div>
     );
   }
   const pct = Math.min(Math.round((budgetSpent / budget) * 100), 999);
-  const remaining = budget - budgetSpent;
   const color = pct >= 100 ? "text-red-600" : pct >= 80 ? "text-yellow-600" : "text-green-600";
   return (
     <div className="flex flex-col gap-1">
       <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Budget</span>
-      <span className={`text-2xl font-bold ${color}`}>{pct}%</span>
+      <span className={`text-3xl font-extrabold leading-none ${color}`}>
+        {pct}<span className="text-base font-semibold">%</span>
+      </span>
       <span className="text-xs text-muted-foreground">
-        {formatCurrency(budgetSpent, currency)} spent · {formatCurrency(remaining, currency)} remaining
+        {formatCurrency(budgetSpent, currency)} of {formatCurrency(budget, currency)}
       </span>
     </div>
   );
 }
+
+function ProgressTile({ overallProgress, phaseCount }: { overallProgress: number; phaseCount: number }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Overall Progress</span>
+      <span className="text-3xl font-extrabold leading-none">
+        {overallProgress}<span className="text-base font-semibold">%</span>
+      </span>
+      <span className="text-xs text-muted-foreground">
+        {phaseCount > 0
+          ? `Across ${phaseCount} phase${phaseCount !== 1 ? "s" : ""}`
+          : "No phases added yet"}
+      </span>
+      <div className="h-1.5 bg-muted rounded-full overflow-hidden mt-0.5">
+        <div
+          className="h-full bg-blue-500 rounded-full transition-all"
+          style={{ width: `${overallProgress}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+const PHASE_COLORS = [
+  "#6366f1", "#3b82f6", "#22c55e", "#f59e0b",
+  "#f97316", "#ef4444", "#a855f7", "#ec4899",
+  "#14b8a6", "#6b7280",
+];
+
+type PhaseForm = {
+  name: string;
+  color: string;
+  percentComplete: number;
+  budgetSpent: number;
+  totalBudget: number;
+};
+
+const EMPTY_PHASE_FORM: PhaseForm = {
+  name: "",
+  color: PHASE_COLORS[0],
+  percentComplete: 0,
+  budgetSpent: 0,
+  totalBudget: 0,
+};
 
 export function ProjectReportView({ projectContext, reports: initialReports }: ProjectReportViewProps) {
   const [reports, setReports] = useState<ProjectReportData[]>(initialReports);
@@ -132,6 +234,14 @@ export function ProjectReportView({ projectContext, reports: initialReports }: P
   const [newEnd, setNewEnd] = useState("");
   const [showFinalizeConfirm, setShowFinalizeConfirm] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Phases state
+  const [phases, setPhases] = useState<ProjectPhase[]>(projectContext.phases);
+  const [showPhaseDialog, setShowPhaseDialog] = useState(false);
+  const [editingPhase, setEditingPhase] = useState<ProjectPhase | null>(null);
+  const [phaseForm, setPhaseForm] = useState<PhaseForm>(EMPTY_PHASE_FORM);
+  const [deletingPhaseId, setDeletingPhaseId] = useState<string | null>(null);
+  const [phaseError, setPhaseError] = useState<string | null>(null);
 
   const current = reports.find((r) => r.id === selectedId) ?? null;
 
@@ -243,6 +353,88 @@ export function ProjectReportView({ projectContext, reports: initialReports }: P
     markDirty();
   };
 
+  // Phase helpers
+  const openAddPhase = () => {
+    setEditingPhase(null);
+    setPhaseForm(EMPTY_PHASE_FORM);
+    setPhaseError(null);
+    setShowPhaseDialog(true);
+  };
+
+  const openEditPhase = (phase: ProjectPhase) => {
+    setEditingPhase(phase);
+    setPhaseForm({
+      name: phase.name,
+      color: phase.color,
+      percentComplete: phase.percentComplete,
+      budgetSpent: phase.budgetSpent,
+      totalBudget: phase.totalBudget,
+    });
+    setPhaseError(null);
+    setShowPhaseDialog(true);
+  };
+
+  const handleSavePhase = () => {
+    if (!phaseForm.name.trim()) { setPhaseError("Name is required"); return; }
+    setPhaseError(null);
+    startTransition(async () => {
+      try {
+        if (editingPhase) {
+          const updated = await updateProjectPhase(editingPhase.id, phaseForm);
+          setPhases((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+        } else {
+          const created = await createProjectPhase(projectContext.id, phaseForm);
+          setPhases((prev) => [...prev, created]);
+        }
+        setShowPhaseDialog(false);
+      } catch (err) {
+        setPhaseError(err instanceof Error ? err.message : "Save failed");
+      }
+    });
+  };
+
+  const handleDeletePhase = (phaseId: string) => {
+    startTransition(async () => {
+      try {
+        await deleteProjectPhase(phaseId);
+        setPhases((prev) => prev.filter((p) => p.id !== phaseId));
+        setDeletingPhaseId(null);
+      } catch (err) {
+        setSaveError(err instanceof Error ? err.message : "Delete failed");
+      }
+    });
+  };
+
+  // Recompute derived values from current phases
+  const phasesWithBudget = phases.filter((p) => p.totalBudget > 0);
+  const hasPhaseBudgets = phasesWithBudget.length > 0;
+
+  // Live budget status from current phase state
+  let liveBudgetStatus: "ON_TRACK" | "AT_RISK" | "OVER" | "NOT_SET" = "NOT_SET";
+  if (hasPhaseBudgets) {
+    let overCount = 0, atRiskCount = 0;
+    for (const phase of phasesWithBudget) {
+      if (phase.budgetSpent > phase.totalBudget) overCount++;
+      else if (phase.percentComplete > 0) {
+        const expectedSpend = phase.totalBudget * (phase.percentComplete / 100);
+        if (phase.budgetSpent > expectedSpend * 1.1) atRiskCount++;
+      }
+    }
+    liveBudgetStatus = overCount > 0 ? "OVER" : atRiskCount > 0 ? "AT_RISK" : "ON_TRACK";
+  }
+
+  // Live overall progress from phases
+  const liveOverallProgress = phases.length > 0
+    ? Math.round(phases.reduce((sum, p) => sum + p.percentComplete, 0) / phases.length)
+    : projectContext.overallProgress;
+
+  const liveContext = {
+    ...projectContext,
+    phases,
+    budgetStatus: liveBudgetStatus,
+    overallProgress: liveOverallProgress,
+  };
+
   const isFinalized = current?.isFinalized ?? false;
 
   return (
@@ -349,72 +541,183 @@ export function ProjectReportView({ projectContext, reports: initialReports }: P
           </p>
 
           {/* Status tiles */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {/* Project Health */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Card>
               <CardContent className="pt-5 pb-4">
-                <div className="flex flex-col gap-1">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Project Health
-                  </span>
-                  {projectContext.healthStatus ? (
-                    <Badge
-                      variant="secondary"
-                      className={healthColors[projectContext.healthStatus]}
-                    >
-                      {projectContext.healthStatus}
-                    </Badge>
-                  ) : (
-                    <span className="text-sm text-muted-foreground">Not set</span>
-                  )}
-                </div>
+                <ScheduleTile status={liveContext.scheduleStatus} />
               </CardContent>
             </Card>
-
-            {/* Schedule */}
             <Card>
               <CardContent className="pt-5 pb-4">
-                <div className="flex flex-col gap-1">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Schedule
-                  </span>
-                  <Badge
-                    variant="secondary"
-                    className={scheduleColors[projectContext.scheduleStatus]}
-                  >
-                    {scheduleLabels[projectContext.scheduleStatus]}
-                  </Badge>
-                </div>
+                <BudgetTile projectContext={liveContext} />
               </CardContent>
             </Card>
-
-            {/* Budget */}
             <Card>
               <CardContent className="pt-5 pb-4">
-                <BudgetTile projectContext={projectContext} />
-              </CardContent>
-            </Card>
-
-            {/* Overall Progress */}
-            <Card>
-              <CardContent className="pt-5 pb-4">
-                <div className="flex flex-col gap-1">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Overall Progress
-                  </span>
-                  <span className="text-2xl font-bold">
-                    {projectContext.overallProgress}%
-                  </span>
-                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-primary rounded-full transition-all"
-                      style={{ width: `${projectContext.overallProgress}%` }}
-                    />
-                  </div>
-                </div>
+                <ProgressTile
+                  overallProgress={liveContext.overallProgress}
+                  phaseCount={phases.length}
+                />
               </CardContent>
             </Card>
           </div>
+
+          {/* Project Phases */}
+          <Card>
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <CardTitle className="text-base">Project Phases</CardTitle>
+              {!isFinalized && (
+                <Button variant="outline" size="sm" onClick={openAddPhase}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Phase
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent>
+              {phases.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No phases defined.</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 font-medium text-muted-foreground w-8"></th>
+                      <th className="text-left py-2 font-medium text-muted-foreground">Phase</th>
+                      <th className="text-right py-2 font-medium text-muted-foreground w-24">% Complete</th>
+                      <th className="text-right py-2 font-medium text-muted-foreground w-32">Budget Spent</th>
+                      <th className="text-right py-2 font-medium text-muted-foreground w-32">Total Budget</th>
+                      {!isFinalized && <th className="w-16"></th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {phases.map((phase) => {
+                      const budgetPct = phase.totalBudget > 0
+                        ? Math.round((phase.budgetSpent / phase.totalBudget) * 100)
+                        : null;
+                      return (
+                        <tr key={phase.id} className="border-b last:border-0">
+                          <td className="py-2">
+                            <span
+                              className="inline-block w-3 h-3 rounded-full"
+                              style={{ backgroundColor: phase.color }}
+                            />
+                          </td>
+                          <td className="py-2 font-medium">{phase.name}</td>
+                          <td className="py-2 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <div className="h-1.5 w-16 bg-muted rounded-full overflow-hidden">
+                                <div
+                                  className="h-full rounded-full"
+                                  style={{
+                                    width: `${phase.percentComplete}%`,
+                                    backgroundColor: phase.color,
+                                  }}
+                                />
+                              </div>
+                              <span>{phase.percentComplete}%</span>
+                            </div>
+                          </td>
+                          <td className="py-2 text-right text-muted-foreground">
+                            {phase.budgetSpent > 0
+                              ? formatCurrency(phase.budgetSpent, projectContext.currency)
+                              : "—"}
+                          </td>
+                          <td className="py-2 text-right text-muted-foreground">
+                            {phase.totalBudget > 0 ? (
+                              <span>
+                                {formatCurrency(phase.totalBudget, projectContext.currency)}
+                                {budgetPct !== null && (
+                                  <span className={`ml-1 text-xs ${budgetPct > 100 ? "text-red-500" : budgetPct > 90 ? "text-yellow-500" : "text-green-600"}`}>
+                                    ({budgetPct}%)
+                                  </span>
+                                )}
+                              </span>
+                            ) : "—"}
+                          </td>
+                          {!isFinalized && (
+                            <td className="py-2">
+                              <div className="flex justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => openEditPhase(phase)}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive hover:text-destructive"
+                                  onClick={() => setDeletingPhaseId(phase.id)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    {(() => {
+                      const totalSpent = phases.reduce((s, p) => s + p.budgetSpent, 0);
+                      const totalBudget = phases.reduce((s, p) => s + p.totalBudget, 0);
+                      const remaining = totalBudget - totalSpent;
+                      const completionPct = liveOverallProgress;
+                      const budgetUsedPct = totalBudget > 0
+                        ? Math.min(Math.round((totalSpent / totalBudget) * 100), 999)
+                        : 0;
+                      const colCount = isFinalized ? 5 : 6;
+                      return (
+                        <tr className="border-t-2 bg-muted/20">
+                          <td colSpan={colCount} className="py-3 px-1">
+                            <div className="flex items-center gap-4">
+                              <span className="font-bold text-sm flex-none">Total Project</span>
+                              <div className="flex-1 space-y-1.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-muted-foreground w-20 flex-none">Completion</span>
+                                  <div className="h-1.5 flex-1 bg-muted rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-blue-500 rounded-full transition-all"
+                                      style={{ width: `${completionPct}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-xs font-medium w-8 text-right flex-none">{completionPct}%</span>
+                                </div>
+                                {totalBudget > 0 && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-muted-foreground w-20 flex-none">Budget Used</span>
+                                    <div className="h-1.5 flex-1 bg-muted rounded-full overflow-hidden">
+                                      <div
+                                        className={`h-full rounded-full transition-all ${budgetUsedPct > 100 ? "bg-red-500" : budgetUsedPct > 80 ? "bg-orange-400" : "bg-green-500"}`}
+                                        style={{ width: `${Math.min(budgetUsedPct, 100)}%` }}
+                                      />
+                                    </div>
+                                    <span className="text-xs font-medium w-8 text-right flex-none">{budgetUsedPct}%</span>
+                                  </div>
+                                )}
+                              </div>
+                              {totalBudget > 0 && (
+                                <div className="text-right flex-none">
+                                  <div className="text-sm font-semibold">
+                                    {formatCurrency(totalSpent, projectContext.currency)} / {formatCurrency(totalBudget, projectContext.currency)}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground mt-0.5">
+                                    {formatCurrency(remaining, projectContext.currency)} remaining
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })()}
+                  </tfoot>
+                </table>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Key Highlights */}
           <Card>
@@ -688,6 +991,133 @@ export function ProjectReportView({ projectContext, reports: initialReports }: P
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Phase Add/Edit Dialog */}
+      <Dialog open={showPhaseDialog} onOpenChange={setShowPhaseDialog}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle>{editingPhase ? "Edit Phase" : "Add Phase"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Phase Name</label>
+              <Input
+                placeholder="e.g. Discovery, Development, UAT"
+                value={phaseForm.name}
+                onChange={(e) => setPhaseForm((f) => ({ ...f, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Color</label>
+              <div className="flex flex-wrap gap-2">
+                {PHASE_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    className={`w-7 h-7 rounded-full border-2 transition-all ${
+                      phaseForm.color === c
+                        ? "border-foreground scale-110"
+                        : "border-transparent hover:border-muted-foreground"
+                    }`}
+                    style={{ backgroundColor: c }}
+                    onClick={() => setPhaseForm((f) => ({ ...f, color: c }))}
+                    aria-label={c}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">% Complete</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={phaseForm.percentComplete}
+                  onChange={(e) =>
+                    setPhaseForm((f) => ({ ...f, percentComplete: Number(e.target.value) }))
+                  }
+                  className="flex-1"
+                />
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  className="w-20"
+                  value={phaseForm.percentComplete}
+                  onChange={(e) => {
+                    const v = Math.max(0, Math.min(100, Number(e.target.value) || 0));
+                    setPhaseForm((f) => ({ ...f, percentComplete: v }));
+                  }}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Budget Spent</label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={100}
+                  placeholder="0"
+                  value={phaseForm.budgetSpent || ""}
+                  onChange={(e) =>
+                    setPhaseForm((f) => ({ ...f, budgetSpent: Number(e.target.value) || 0 }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Total Budget</label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={100}
+                  placeholder="0"
+                  value={phaseForm.totalBudget || ""}
+                  onChange={(e) =>
+                    setPhaseForm((f) => ({ ...f, totalBudget: Number(e.target.value) || 0 }))
+                  }
+                />
+              </div>
+            </div>
+            {phaseError && (
+              <p className="text-sm text-red-600">{phaseError}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPhaseDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSavePhase} disabled={isPending}>
+              {isPending ? "Saving…" : editingPhase ? "Save Changes" : "Add Phase"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Phase Delete Confirm */}
+      <AlertDialog open={!!deletingPhaseId} onOpenChange={(o) => !o && setDeletingPhaseId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Phase</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the phase. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              onClick={() => deletingPhaseId && handleDeletePhase(deletingPhaseId)}
+              disabled={isPending}
+            >
+              {isPending ? "Deleting…" : "Delete"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Finalize Confirm */}
       <AlertDialog open={showFinalizeConfirm} onOpenChange={setShowFinalizeConfirm}>

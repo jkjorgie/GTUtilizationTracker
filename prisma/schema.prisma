@@ -197,6 +197,7 @@ model Project {
   otherInvoices  OtherInvoice[]
   reports        ProjectReport[]
   scheduleItems  ProjectScheduleItem[]
+  phases         ProjectPhase[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -321,6 +322,23 @@ model PTORequest {
   
   @@index([consultantId])
   @@index([status])
+}
+
+model ProjectPhase {
+  id              String   @id @default(cuid())
+  projectId       String
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name            String
+  color           String   @default("#6366f1")
+  percentComplete Int      @default(0)
+  budgetSpent     Float    @default(0)
+  totalBudget     Float    @default(0)
+  displayOrder    Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
 }
 
 model ProjectReport {
