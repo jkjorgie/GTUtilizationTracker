@@ -29,7 +29,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { ArrowDown, ArrowUp, ArrowUpDown, FileText, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Calendar, FileText, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { deleteProject } from "@/app/actions/projects";
 import { getProjectMembers } from "@/app/actions/project-members";
 import { ProjectForm, ProjectWithRelations } from "./project-form";
@@ -139,29 +139,29 @@ export function ProjectTable({ projects, pemConsultants, roleDefinitions, allCon
   return (
     <>
       <div className="rounded-md border">
-        <Table>
+        <Table className="table-fixed">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[24px]"></TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("client")}>
+              <TableHead className="w-6"></TableHead>
+              <TableHead className="w-[18%] cursor-pointer select-none" onClick={() => handleSort("client")}>
                 <span className="flex items-center gap-1">Client <SortIcon col="client" sortKey={sortKey} sortDir={sortDir} /></span>
               </TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("projectName")}>
+              <TableHead className="w-[22%] cursor-pointer select-none" onClick={() => handleSort("projectName")}>
                 <span className="flex items-center gap-1">Project <SortIcon col="projectName" sortKey={sortKey} sortDir={sortDir} /></span>
               </TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("timecode")}>
+              <TableHead className="w-[15%] cursor-pointer select-none" onClick={() => handleSort("timecode")}>
                 <span className="flex items-center gap-1">Timecode <SortIcon col="timecode" sortKey={sortKey} sortDir={sortDir} /></span>
               </TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("pm")}>
+              <TableHead className="w-[13%] cursor-pointer select-none" onClick={() => handleSort("pm")}>
                 <span className="flex items-center gap-1">PM <SortIcon col="pm" sortKey={sortKey} sortDir={sortDir} /></span>
               </TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("type")}>
+              <TableHead className="w-[10%] cursor-pointer select-none" onClick={() => handleSort("type")}>
                 <span className="flex items-center gap-1">Type <SortIcon col="type" sortKey={sortKey} sortDir={sortDir} /></span>
               </TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("status")}>
+              <TableHead className="w-[10%] cursor-pointer select-none" onClick={() => handleSort("status")}>
                 <span className="flex items-center gap-1">Status <SortIcon col="status" sortKey={sortKey} sortDir={sortDir} /></span>
               </TableHead>
-              <TableHead className="w-[50px]"></TableHead>
+              <TableHead className="w-10"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -182,12 +182,12 @@ export function ProjectTable({ projects, pemConsultants, roleDefinitions, allCon
                       />
                     ) : null}
                   </TableCell>
-                  <TableCell className="font-medium">{project.client}</TableCell>
-                  <TableCell>{project.projectName}</TableCell>
-                  <TableCell className="font-mono text-sm">
+                  <TableCell className="font-medium truncate">{project.client}</TableCell>
+                  <TableCell className="truncate">{project.projectName}</TableCell>
+                  <TableCell className="font-mono text-sm truncate">
                     {project.timecode.split(",").map((tc) => tc.trim()).filter(Boolean).join(", ")}
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
+                  <TableCell className="text-sm text-muted-foreground truncate">
                     {project.projectManager?.name ?? "—"}
                   </TableCell>
                   <TableCell>
@@ -213,10 +213,16 @@ export function ProjectTable({ projects, pemConsultants, roleDefinitions, allCon
                           Edit
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => window.open(`/api/projects/${project.id}/report`, "_blank")}
+                          onClick={() => window.open(`/projects/${project.id}/report`, "_blank")}
                         >
                           <FileText className="mr-2 h-4 w-4" />
-                          Reports &amp; Schedule
+                          Report
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => window.open(`/projects/${project.id}/schedule`, "_blank")}
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          Schedule
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem

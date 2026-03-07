@@ -107,6 +107,11 @@ enum HealthStatus {
   GREEN
 }
 
+enum ScheduleItemType {
+  TASK
+  MILESTONE
+}
+
 // Models
 model User {
   id           String     @id @default(cuid())
@@ -190,6 +195,8 @@ model Project {
   members        ProjectMember[]
   invoicePeriods InvoicePeriod[]
   otherInvoices  OtherInvoice[]
+  reports        ProjectReport[]
+  scheduleItems  ProjectScheduleItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -314,4 +321,47 @@ model PTORequest {
   
   @@index([consultantId])
   @@index([status])
+}
+
+model ProjectReport {
+  id           String    @id @default(cuid())
+  projectId    String
+  project      Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  reportNumber Int
+  periodStart  DateTime  @db.Date
+  periodEnd    DateTime  @db.Date
+  isFinalized  Boolean   @default(false)
+  finalizedAt  DateTime?
+
+  highlights   String?   // newline-separated bullet points
+  upcomingWork String?   // newline-separated bullet points
+  risks        Json?     // Array of { id, description, impact, mitigation, owner }
+  actionItems  Json?     // Array of { id, description, owner, dueDate, status }
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, reportNumber])
+  @@index([projectId])
+}
+
+model ProjectScheduleItem {
+  id              String           @id @default(cuid())
+  projectId       String
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  type            ScheduleItemType @default(TASK)
+  name            String
+  owner           String?
+  startDate       DateTime?        @db.Date
+  endDate         DateTime?        @db.Date
+  percentComplete Int              @default(0)
+  displayOrder    Int              @default(0)
+  parentId        String?
+  parent          ProjectScheduleItem?  @relation("ScheduleChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children        ProjectScheduleItem[] @relation("ScheduleChildren")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
 }
