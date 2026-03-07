@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { ProjectType, ProjectStatus, HealthStatus } from "@prisma/client";
 import {
   Table,
@@ -74,6 +75,7 @@ function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey | 
 }
 
 export function ProjectTable({ projects, pemConsultants, roleDefinitions, allConsultants }: ProjectTableProps) {
+  const router = useRouter();
   const [editingProject, setEditingProject] = useState<ProjectWithRelations | null>(null);
   const [editFormOpen, setEditFormOpen] = useState(false);
   const [deletingProject, setDeletingProject] = useState<ProjectRow | null>(null);
@@ -182,12 +184,12 @@ export function ProjectTable({ projects, pemConsultants, roleDefinitions, allCon
                       />
                     ) : null}
                   </TableCell>
-                  <TableCell className="font-medium truncate">{project.client}</TableCell>
-                  <TableCell className="truncate">{project.projectName}</TableCell>
-                  <TableCell className="font-mono text-sm truncate">
+                  <TableCell className="font-medium align-top">{project.client}</TableCell>
+                  <TableCell className="align-top">{project.projectName}</TableCell>
+                  <TableCell className="font-mono text-sm align-top">
                     {project.timecode.split(",").map((tc) => tc.trim()).filter(Boolean).join(", ")}
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground truncate">
+                  <TableCell className="text-sm text-muted-foreground align-top">
                     {project.projectManager?.name ?? "—"}
                   </TableCell>
                   <TableCell>
@@ -213,13 +215,13 @@ export function ProjectTable({ projects, pemConsultants, roleDefinitions, allCon
                           Edit
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => window.open(`/projects/${project.id}/report`, "_blank")}
+                          onClick={() => router.push(`/projects/${project.id}/report`)}
                         >
                           <FileText className="mr-2 h-4 w-4" />
                           Report
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => window.open(`/projects/${project.id}/schedule`, "_blank")}
+                          onClick={() => router.push(`/projects/${project.id}/schedule`)}
                         >
                           <Calendar className="mr-2 h-4 w-4" />
                           Schedule

@@ -35,7 +35,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Lock, Save, Trash2 } from "lucide-react";
+import { Plus, Lock, Save, Trash2, Printer } from "lucide-react";
 import {
   type ProjectReportContext,
   type ProjectReportData,
@@ -239,6 +239,17 @@ export function ProjectReportView({ projectContext, reports: initialReports }: P
   const isFinalized = current?.isFinalized ?? false;
 
   return (
+    <>
+      <style>{`
+        @media print {
+          aside,
+          header { display: none !important; }
+          main { padding: 0 !important; background: white !important; }
+          .print\\:hidden { display: none !important; }
+          * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .card { box-shadow: none !important; border: 1px solid #e5e7eb !important; }
+        }
+      `}</style>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
@@ -252,7 +263,7 @@ export function ProjectReportView({ projectContext, reports: initialReports }: P
             {projectContext.projectManager && ` · PM: ${projectContext.projectManager.name}`}
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap print:hidden">
           {reports.length > 0 && (
             <Select value={selectedId} onValueChange={handleSelectReport}>
               <SelectTrigger className="w-48">
@@ -291,11 +302,17 @@ export function ProjectReportView({ projectContext, reports: initialReports }: P
               Finalize
             </Button>
           )}
+          {current && isFinalized && (
+            <Button size="sm" variant="outline" onClick={() => window.print()}>
+              <Printer className="h-4 w-4 mr-1" />
+              Print / PDF
+            </Button>
+          )}
         </div>
       </div>
 
       {saveError && (
-        <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 rounded-md">
+        <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 rounded-md print:hidden">
           {saveError}
         </div>
       )}
@@ -683,5 +700,6 @@ export function ProjectReportView({ projectContext, reports: initialReports }: P
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </>
   );
 }
