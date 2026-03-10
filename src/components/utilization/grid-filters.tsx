@@ -42,7 +42,7 @@ interface GridFiltersProps {
   onDateRangeChange: (start: Date, end: Date) => void;
   allExpanded: boolean;
   onToggleExpandAll: () => void;
-  projects: Array<{ id: string; projectName: string; timecode: string }>;
+  projects: Array<{ id: string; projectName: string; timecode: string | null }>;
   projectFilter: string[];
   onProjectFilterChange: (filter: string[]) => void;
 }
@@ -85,14 +85,14 @@ export function GridFilters({
   }, [startDate, endDate]);
 
   const sortedProjects = useMemo(() => {
-    return [...projects].sort((a, b) => a.timecode.localeCompare(b.timecode));
+    return [...projects].sort((a, b) => (a.timecode ?? "").localeCompare(b.timecode ?? ""));
   }, [projects]);
 
   const filteredProjects = useMemo(() => {
     if (!projectSearch) return sortedProjects;
     const q = projectSearch.toLowerCase();
     return sortedProjects.filter(
-      p => p.timecode.toLowerCase().includes(q) || p.projectName.toLowerCase().includes(q)
+      p => (p.timecode ?? "").toLowerCase().includes(q) || p.projectName.toLowerCase().includes(q)
     );
   }, [sortedProjects, projectSearch]);
 
@@ -249,8 +249,8 @@ export function GridFilters({
                           className="flex items-center gap-2 px-1 py-1.5 rounded hover:bg-muted cursor-pointer"
                         >
                           <Checkbox
-                            checked={projectFilter.includes(project.timecode)}
-                            onCheckedChange={() => toggleProject(project.timecode)}
+                            checked={project.timecode ? projectFilter.includes(project.timecode) : false}
+                            onCheckedChange={() => project.timecode && toggleProject(project.timecode)}
                           />
                           <span className="text-sm truncate">
                             <span className="font-mono">{project.timecode}</span>

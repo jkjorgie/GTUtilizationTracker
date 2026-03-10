@@ -17,7 +17,7 @@ interface UtilizationGridProps {
     id: string;
     client: string;
     projectName: string;
-    timecode: string;
+    timecode: string | null;
     type: ProjectType;
     status: ProjectStatus;
     startDate: Date | null;
@@ -113,7 +113,7 @@ export function UtilizationGrid({
       }
       if (projectFilter.length > 0) {
         const consultantProjects = data.consultantProjects[consultant.id] || [];
-        if (!consultantProjects.some(p => projectFilter.includes(p.timecode))) {
+        if (!consultantProjects.some(p => p.timecode && projectFilter.includes(p.timecode))) {
           return false;
         }
       }
@@ -190,7 +190,7 @@ export function UtilizationGrid({
     projectUpdates: Array<{
       projectId: string;
       projectName: string;
-      timecode: string;
+      timecode: string | null;
       projectType: ProjectType;
       projectedHours: number;
       actualHours: number;
@@ -346,7 +346,7 @@ export function UtilizationGrid({
                 const isExpanded = expandedConsultants.has(consultant.id);
                 const allConsultantProjects = data.consultantProjects[consultant.id] || [];
                 const consultantProjectsList = projectFilter.length > 0
-                  ? allConsultantProjects.filter(p => projectFilter.includes(p.timecode))
+                  ? allConsultantProjects.filter(p => p.timecode && projectFilter.includes(p.timecode))
                   : allConsultantProjects;
 
                 return (

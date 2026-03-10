@@ -51,7 +51,7 @@ import { Pencil, Plus, Trash2, X } from "lucide-react";
 const formSchema = z.object({
   client: z.string().min(1, "Client is required"),
   projectName: z.string().min(1, "Project name is required"),
-  timecode: z.string().min(1, "Timecode is required"),
+  timecode: z.string().optional().nullable(),
   type: z.nativeEnum(ProjectType),
   status: z.nativeEnum(ProjectStatus),
   projectManagerId: z.string().optional().nullable(),
@@ -84,7 +84,7 @@ export interface ProjectWithRelations {
   id: string;
   client: string;
   projectName: string;
-  timecode: string;
+  timecode: string | null;
   type: ProjectType;
   status: ProjectStatus;
   projectManagerId?: string | null;
@@ -253,7 +253,7 @@ export function ProjectForm({
   }, [roleDefinitions]);
 
   useEffect(() => {
-    form.setValue("timecode", timecodes.join(", "), { shouldValidate: timecodes.length > 0 });
+    form.setValue("timecode", timecodes.length > 0 ? timecodes.join(", ") : null);
   }, [timecodes, form]);
 
   const addTimecode = useCallback((value: string) => {
@@ -381,6 +381,7 @@ export function ProjectForm({
         const created = await createProject(apiData);
         const newProject: ProjectWithRelations = {
           ...apiData,
+          timecode: apiData.timecode ?? null,
           id: created.id,
           startDate: created.startDate,
           endDate: created.endDate,

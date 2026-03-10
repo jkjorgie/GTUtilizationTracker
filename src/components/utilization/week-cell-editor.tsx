@@ -29,7 +29,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 interface AllocationDetail {
   projectId: string;
   projectName: string;
-  timecode: string;
+  timecode: string | null;
   projectType: ProjectType;
   hours: number;
   entryType: AllocationEntryType;
@@ -46,7 +46,7 @@ interface WeekCellEditorProps {
   week: string;
   standardHours: number;
   details: AllocationDetail[];
-  projects: Array<{ id: string; projectName: string; timecode: string }>;
+  projects: Array<{ id: string; projectName: string; timecode: string | null }>;
   roleDefinitions: Array<{ id: string; name: string; msrpRate: number }>;
   onSave?: (allocations: Array<{ projectId: string; projectedHours: number; actualHours: number; notes: string }>) => void;
 }
@@ -128,7 +128,7 @@ export function WeekCellEditor({
 
   const getProjectName = (projectId: string) => {
     const project = projects.find(p => p.id === projectId);
-    return project ? `${project.timecode} - ${project.projectName}` : "Unknown";
+    return project ? `${project.timecode ? `${project.timecode} - ` : ""}${project.projectName}` : "Unknown";
   };
 
   const handleUpdateAllocation = useCallback((index: number, field: 'actualHours' | 'projectedHours' | 'notes', value: number | string) => {

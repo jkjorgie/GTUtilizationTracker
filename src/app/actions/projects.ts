@@ -9,7 +9,7 @@ import { ProjectType, ProjectStatus, SalesManager, Currency, ContractType, Healt
 const projectSchema = z.object({
   client: z.string().min(1, "Client is required"),
   projectName: z.string().min(1, "Project name is required"),
-  timecode: z.string().min(1, "Timecode is required"),
+  timecode: z.string().optional().nullable(),
   type: z.nativeEnum(ProjectType),
   status: z.nativeEnum(ProjectStatus),
   projectManagerId: z.string().optional().nullable(),
@@ -100,7 +100,7 @@ export async function createProject(data: ProjectFormData) {
     data: {
       client: validated.client,
       projectName: validated.projectName,
-      timecode: validated.timecode,
+      timecode: validated.timecode ?? null,
       type: validated.type,
       status: validated.status,
       projectManagerId: validated.projectManagerId || null,
@@ -133,7 +133,7 @@ export async function updateProject(id: string, data: ProjectFormData) {
     data: {
       client: validated.client,
       projectName: validated.projectName,
-      timecode: validated.timecode,
+      timecode: validated.timecode ?? null,
       type: validated.type,
       status: validated.status,
       projectManagerId: validated.projectManagerId || null,

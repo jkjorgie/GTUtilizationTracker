@@ -182,7 +182,7 @@ export async function processActualsUpload(formData: FormData): Promise<UploadRe
     select: { id: true, timecode: true },
   });
   const projectMap = new Map(
-    allProjects.map((p) => [p.timecode.toLowerCase(), p.id])
+    allProjects.filter((p) => p.timecode).map((p) => [p.timecode!.toLowerCase(), p.id])
   );
 
   const allConsultants = await prisma.consultant.findMany({

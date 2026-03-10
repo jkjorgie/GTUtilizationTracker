@@ -101,7 +101,7 @@ export function ProjectTable({ projects, pemConsultants, roleDefinitions, allCon
       switch (sortKey) {
         case "client": aVal = a.client; bVal = b.client; break;
         case "projectName": aVal = a.projectName; bVal = b.projectName; break;
-        case "timecode": aVal = a.timecode; bVal = b.timecode; break;
+        case "timecode": aVal = a.timecode ?? ""; bVal = b.timecode ?? ""; break;
         case "pm": aVal = a.projectManager?.name ?? ""; bVal = b.projectManager?.name ?? ""; break;
         case "type": aVal = a.type; bVal = b.type; break;
         case "status": aVal = a.status; bVal = b.status; break;
@@ -187,7 +187,7 @@ export function ProjectTable({ projects, pemConsultants, roleDefinitions, allCon
                   <TableCell className="font-medium align-top max-w-0 whitespace-normal break-words">{project.client}</TableCell>
                   <TableCell className="align-top max-w-0 whitespace-normal break-words">{project.projectName}</TableCell>
                   <TableCell className="font-mono text-sm align-top max-w-0 whitespace-normal break-words">
-                    {project.timecode.split(",").map((tc) => tc.trim()).filter(Boolean).join(", ")}
+                    {project.timecode ? project.timecode.split(",").map((tc) => tc.trim()).filter(Boolean).join(", ") : "—"}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground align-top max-w-0 whitespace-normal break-words">
                     {project.projectManager?.name ?? "—"}

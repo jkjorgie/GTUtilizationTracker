@@ -42,7 +42,7 @@ export function ProjectsView({ projects, pemConsultants, roleDefinitions, allCon
         return (
           project.client.toLowerCase().includes(q) ||
           project.projectName.toLowerCase().includes(q) ||
-          project.timecode.toLowerCase().includes(q)
+          (project.timecode ?? "").toLowerCase().includes(q)
         );
       }
       return true;

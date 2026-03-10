@@ -49,7 +49,7 @@ type Project = {
   id: string;
   client: string;
   projectName: string;
-  timecode: string;
+  timecode: string | null;
 };
 
 interface InvoicingClientProps {
@@ -699,7 +699,7 @@ export function InvoicingClient({ projects }: InvoicingClientProps) {
             <SelectContent>
               {clientProjects.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
-                  {p.projectName} ({p.timecode})
+                  {p.projectName}{p.timecode ? ` (${p.timecode})` : ""}
                 </SelectItem>
               ))}
             </SelectContent>

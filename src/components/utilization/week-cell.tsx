@@ -31,7 +31,7 @@ const BILLABLE_TYPES: ProjectType[] = [ProjectType.BILLABLE, ProjectType.ASSIGNE
 interface AllocationDetail {
   projectId: string;
   projectName: string;
-  timecode: string;
+  timecode: string | null;
   projectType: ProjectType;
   hours: number;
   entryType: AllocationEntryType;
@@ -48,7 +48,7 @@ interface WeekCellProps {
   standardHours: number;
   editable: boolean;
   displayMode: DisplayMode;
-  projects: Array<{ id: string; projectName: string; timecode: string }>;
+  projects: Array<{ id: string; projectName: string; timecode: string | null }>;
   roleDefinitions: Array<{ id: string; name: string; msrpRate: number }>;
   onSave?: (allocations: Array<{ projectId: string; projectedHours: number; actualHours: number; notes: string }>) => void;
 }
@@ -263,7 +263,7 @@ interface ProjectWeekCellProps {
   notes?: string | null;
   projectId: string;
   projectName: string;
-  timecode: string;
+  timecode: string | null;
   editable: boolean;
   onSave?: (projectedHours: number, actualHours: number, notes: string) => void;
 }
@@ -292,7 +292,7 @@ function ProjectCellEditor({
   initialNotes?: string | null;
   projectId: string;
   projectName: string;
-  timecode: string;
+  timecode: string | null;
   onSave?: (projectedHours: number, actualHours: number, notes: string) => void;
 }) {
   const [isPending, startTransition] = useTransition();

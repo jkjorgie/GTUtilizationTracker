@@ -151,7 +151,7 @@ export async function previewMassLoad(data: MassLoadFormData) {
     totalAllocations: consultants.length * weeks.length,
     totalHours: consultants.length * weeks.length * validated.hours,
     project: project
-      ? `${project.projectName} (${project.timecode})`
+      ? `${project.projectName}${project.timecode ? ` (${project.timecode})` : ""}`
       : "Unknown",
   };
 }

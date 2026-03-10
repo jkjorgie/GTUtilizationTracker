@@ -29,7 +29,7 @@ export interface UtilizationData {
     details: Array<{
       projectId: string;
       projectName: string;
-      timecode: string;
+      timecode: string | null;
       projectType: ProjectType;
       hours: number;
       entryType: AllocationEntryType;
@@ -38,7 +38,7 @@ export interface UtilizationData {
       updatedAt: Date;
     }>;
   }>>;
-  consultantProjects: Record<string, Array<{ projectId: string; projectName: string; timecode: string }>>;
+  consultantProjects: Record<string, Array<{ projectId: string; projectName: string; timecode: string | null }>>;
   consultantProjectRoles: Record<string, Record<string, string[]>>;
 }
 
@@ -180,7 +180,7 @@ export async function getUtilizationData(
     distinct: ['consultantId', 'projectId'],
   });
 
-  const consultantProjectsMap: Record<string, Array<{ projectId: string; projectName: string; timecode: string }>> = {};
+  const consultantProjectsMap: Record<string, Array<{ projectId: string; projectName: string; timecode: string | null }>> = {};
   for (const assoc of consultantProjectAssocs) {
     if (!consultantProjectsMap[assoc.consultantId]) {
       consultantProjectsMap[assoc.consultantId] = [];
@@ -192,7 +192,7 @@ export async function getUtilizationData(
     });
   }
   for (const id of Object.keys(consultantProjectsMap)) {
-    consultantProjectsMap[id].sort((a, b) => a.timecode.localeCompare(b.timecode));
+    consultantProjectsMap[id].sort((a, b) => (a.timecode ?? "").localeCompare(b.timecode ?? ""));
   }
 
   // Build consultant → project → roles map from ProjectMember records

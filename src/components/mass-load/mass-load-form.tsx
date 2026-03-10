@@ -60,7 +60,7 @@ type FormData = z.infer<typeof formSchema>;
 
 interface MassLoadFormProps {
   consultants: Array<{ id: string; name: string; standardHours: number }>;
-  projects: Array<{ id: string; client: string; projectName: string; timecode: string }>;
+  projects: Array<{ id: string; client: string; projectName: string; timecode: string | null }>;
 }
 
 interface PreviewData {
