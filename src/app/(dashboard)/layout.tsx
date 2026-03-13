@@ -15,6 +15,10 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
+  if (session.user.requirePasswordReset) {
+    redirect("/force-reset");
+  }
+
   const pendingPTOCount = await getPendingPTOCount();
 
   return (

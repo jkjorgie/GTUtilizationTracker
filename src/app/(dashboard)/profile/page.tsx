@@ -1,7 +1,9 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getProfile } from "@/app/actions/profile";
+import { getTotpStatus } from "@/app/actions/totp";
 import { ProfileView } from "@/components/profile/profile-view";
+import { TotpSection } from "@/components/profile/totp-section";
 
 export default async function ProfilePage() {
   const session = await auth();
@@ -9,7 +11,7 @@ export default async function ProfilePage() {
     redirect("/login");
   }
 
-  const profile = await getProfile();
+  const [profile, totpStatus] = await Promise.all([getProfile(), getTotpStatus()]);
 
   return (
     <div className="space-y-6">
@@ -19,6 +21,9 @@ export default async function ProfilePage() {
       </div>
 
       <ProfileView profile={profile} />
+      <div className="grid gap-6 md:grid-cols-2">
+        <TotpSection isEnrolled={totpStatus.verified} />
+      </div>
     </div>
   );
 }

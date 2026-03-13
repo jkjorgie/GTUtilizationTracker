@@ -20,6 +20,7 @@ type UserWithConsultant = {
   id: string;
   email: string;
   role: UserRole;
+  requirePasswordReset: boolean;
   consultant: { id: string; name: string } | null;
   createdAt: Date;
 };
@@ -34,9 +35,10 @@ interface UsersViewProps {
   users: UserWithConsultant[];
   consultants: ConsultantForLinking[];
   currentUserId: string;
+  totpStatus: Record<string, boolean>;
 }
 
-export function UsersView({ users, consultants, currentUserId }: UsersViewProps) {
+export function UsersView({ users, consultants, currentUserId, totpStatus }: UsersViewProps) {
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
@@ -102,10 +104,11 @@ export function UsersView({ users, consultants, currentUserId }: UsersViewProps)
           <CardTitle>All Users ({filteredUsers.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <UserTable 
-            users={filteredUsers} 
+          <UserTable
+            users={filteredUsers}
             consultants={consultants}
             currentUserId={currentUserId}
+            totpStatus={totpStatus}
           />
         </CardContent>
       </Card>

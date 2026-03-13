@@ -1,20 +1,21 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// Routes that don't require authentication
-const publicRoutes = ["/login", "/api/auth"];
+// Routes accessible without authentication
+const publicRoutes = ["/login", "/api/auth", "/force-reset"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  
-  // Allow public routes
+
+  // Allow public routes through unconditionally
   if (publicRoutes.some((route) => pathname.startsWith(route))) {
     return NextResponse.next();
   }
 
   // Check for session token (NextAuth v5 uses authjs.session-token)
-  const sessionToken = request.cookies.get("authjs.session-token")?.value ||
-                       request.cookies.get("__Secure-authjs.session-token")?.value;
+  const sessionToken =
+    request.cookies.get("authjs.session-token")?.value ||
+    request.cookies.get("__Secure-authjs.session-token")?.value;
 
   // If no session, redirect to login
   if (!sessionToken) {
@@ -23,8 +24,9 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Role-based access control is handled in the page components
-  // since we can't decode the JWT in edge runtime without crypto
+  // requirePasswordReset is enforced in the (dashboard) layout, which runs in
+  // Node.js runtime and can safely call auth(). Middleware stays edge-compatible
+  // by only checking cookie presence here.
   return NextResponse.next();
 }
 

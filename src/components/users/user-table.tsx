@@ -37,14 +37,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowDown, ArrowUp, ArrowUpDown, MoreHorizontal, Pencil, Trash2, KeyRound, Check } from "lucide-react";
-import { deleteUser, resetUserPassword } from "@/app/actions/users";
+import { ArrowDown, ArrowUp, ArrowUpDown, MoreHorizontal, Pencil, Trash2, KeyRound, Check, ShieldAlert, ShieldCheck, Smartphone } from "lucide-react";
+import { deleteUser, resetUserPassword, setRequirePasswordReset } from "@/app/actions/users";
+import { resetUserTotp } from "@/app/actions/totp";
 import { UserForm } from "./user-form";
+import { PASSWORD_REQUIREMENTS } from "@/lib/password-validation";
 
 type UserWithConsultant = {
   id: string;
   email: string;
   role: UserRole;
+  requirePasswordReset: boolean;
   consultant: { id: string; name: string } | null;
   createdAt: Date;
 };
@@ -59,6 +62,7 @@ interface UserTableProps {
   users: UserWithConsultant[];
   consultants: ConsultantForLinking[];
   currentUserId: string;
+  totpStatus: Record<string, boolean>;
 }
 
 const roleColors: Record<UserRole, string> = {
@@ -75,7 +79,7 @@ function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey | 
   return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
 }
 
-export function UserTable({ users, consultants, currentUserId }: UserTableProps) {
+export function UserTable({ users, consultants, currentUserId, totpStatus }: UserTableProps) {
   const [editingUser, setEditingUser] = useState<{
     id: string;
     email: string;
@@ -89,6 +93,8 @@ export function UserTable({ users, consultants, currentUserId }: UserTableProps)
   const [isDeleting, setIsDeleting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
+  const [togglingResetFor, setTogglingResetFor] = useState<string | null>(null);
+  const [resettingTotpFor, setResettingTotpFor] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
@@ -158,6 +164,28 @@ export function UserTable({ users, consultants, currentUserId }: UserTableProps)
     }
   };
 
+  const handleResetTotp = async (userId: string) => {
+    setResettingTotpFor(userId);
+    try {
+      await resetUserTotp(userId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reset 2FA");
+    } finally {
+      setResettingTotpFor(null);
+    }
+  };
+
+  const handleToggleForceReset = async (user: UserWithConsultant) => {
+    setTogglingResetFor(user.id);
+    try {
+      await setRequirePasswordReset(user.id, !user.requirePasswordReset);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update");
+    } finally {
+      setTogglingResetFor(null);
+    }
+  };
+
   const handleEditClick = (user: UserWithConsultant) => {
     setEditingUser({
       id: user.id,
@@ -203,6 +231,16 @@ export function UserTable({ users, consultants, currentUserId }: UserTableProps)
                     {user.id === currentUserId && (
                       <Badge variant="outline" className="ml-2 text-xs">You</Badge>
                     )}
+                    {user.requirePasswordReset && (
+                      <Badge variant="outline" className="ml-2 text-xs text-amber-600 border-amber-400">
+                        Reset Required
+                      </Badge>
+                    )}
+                    {totpStatus[user.id] && (
+                      <Badge variant="outline" className="ml-2 text-xs text-green-600 border-green-400">
+                        2FA
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary" className={roleColors[user.role]}>
@@ -236,6 +274,33 @@ export function UserTable({ users, consultants, currentUserId }: UserTableProps)
                           <KeyRound className="mr-2 h-4 w-4" />
                           Reset Password
                         </DropdownMenuItem>
+                        {user.id !== currentUserId && (
+                          <DropdownMenuItem
+                            onClick={() => handleToggleForceReset(user)}
+                            disabled={togglingResetFor === user.id}
+                          >
+                            {user.requirePasswordReset ? (
+                              <>
+                                <ShieldCheck className="mr-2 h-4 w-4 text-green-600" />
+                                Clear Reset Requirement
+                              </>
+                            ) : (
+                              <>
+                                <ShieldAlert className="mr-2 h-4 w-4 text-amber-600" />
+                                Require Password Reset
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                        )}
+                        {user.id !== currentUserId && totpStatus[user.id] && (
+                          <DropdownMenuItem
+                            onClick={() => handleResetTotp(user.id)}
+                            disabled={resettingTotpFor === user.id}
+                          >
+                            <Smartphone className="mr-2 h-4 w-4 text-muted-foreground" />
+                            Reset 2FA
+                          </DropdownMenuItem>
+                        )}
                         {user.id !== currentUserId && (
                           <DropdownMenuItem
                             onClick={() => setDeletingUser(user)}
@@ -326,11 +391,12 @@ export function UserTable({ users, consultants, currentUserId }: UserTableProps)
             <label className="text-sm font-medium">New Password</label>
             <Input
               type="password"
-              placeholder="Min 8 characters"
+              placeholder="New password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               disabled={resetSuccess}
             />
+            <p className="text-xs text-muted-foreground">{PASSWORD_REQUIREMENTS}</p>
           </div>
 
           <DialogFooter>
@@ -339,7 +405,7 @@ export function UserTable({ users, consultants, currentUserId }: UserTableProps)
             </Button>
             <Button
               onClick={handleResetPassword}
-              disabled={isResetting || !newPassword || newPassword.length < 8 || resetSuccess}
+              disabled={isResetting || !newPassword || newPassword.length < 16 || resetSuccess}
             >
               {isResetting ? "Resetting..." : "Reset Password"}
             </Button>

@@ -6,10 +6,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { UserRole } from "@prisma/client";
+import { passwordSchema } from "@/lib/password-validation";
 
 const userSchema = z.object({
   email: z.string().email("Invalid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters").optional(),
+  password: passwordSchema.optional(),
   role: z.nativeEnum(UserRole),
   consultantId: z.string().nullable().optional(),
 });
@@ -27,6 +28,7 @@ export async function getUsers() {
       id: true,
       email: true,
       role: true,
+      requirePasswordReset: true,
       consultant: {
         select: {
           id: true,
@@ -92,6 +94,8 @@ export async function createUser(data: UserFormData) {
   return user;
 }
 
+// SECURITY: Email changes are intentionally restricted to ADMIN only.
+// profile.ts (user self-service) does not expose an email-change action.
 export async function updateUser(id: string, data: UserFormData) {
   const session = await auth();
   if (!session || session.user.role !== "ADMIN") {
@@ -161,8 +165,17 @@ export async function resetUserPassword(id: string, newPassword: string) {
     throw new Error("Unauthorized");
   }
 
-  if (newPassword.length < 8) {
-    throw new Error("Password must be at least 8 characters");
+  const parsed = passwordSchema.safeParse(newPassword);
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues[0].message);
+  }
+
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) throw new Error("User not found");
+
+  const isSamePassword = await bcrypt.compare(newPassword, user.passwordHash);
+  if (isSamePassword) {
+    throw new Error("New password must be different from the current password");
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
@@ -170,6 +183,21 @@ export async function resetUserPassword(id: string, newPassword: string) {
   await prisma.user.update({
     where: { id },
     data: { passwordHash },
+  });
+
+  revalidatePath("/users");
+  return { success: true };
+}
+
+export async function setRequirePasswordReset(id: string, require: boolean) {
+  const session = await auth();
+  if (!session || session.user.role !== "ADMIN") {
+    throw new Error("Unauthorized");
+  }
+
+  await prisma.user.update({
+    where: { id },
+    data: { requirePasswordReset: require },
   });
 
   revalidatePath("/users");
