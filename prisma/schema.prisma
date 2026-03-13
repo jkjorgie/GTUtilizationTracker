@@ -114,15 +114,19 @@ enum ScheduleItemType {
 
 // Models
 model User {
-  id           String     @id @default(cuid())
-  email        String     @unique
-  passwordHash String
-  role         UserRole   @default(EMPLOYEE)
-  consultantId String?    @unique
-  consultant   Consultant? @relation(fields: [consultantId], references: [id])
+  id                   String     @id @default(cuid())
+  email                String     @unique
+  passwordHash         String
+  role                 UserRole   @default(EMPLOYEE)
+  requirePasswordReset Boolean    @default(false)
+  consultantId         String?    @unique
+  consultant           Consultant? @relation(fields: [consultantId], references: [id])
   
-  createdAllocations Allocation[] @relation("AllocationCreator")
-  approvedPTOs       PTORequest[] @relation("PTOApprover")
+  createdAllocations Allocation[]     @relation("AllocationCreator")
+  approvedPTOs       PTORequest[]     @relation("PTOApprover")
+  totpSecret         UserTotpSecret?
+  mfaPendingTokens   MfaPendingToken[]
+  deviceTokens       DeviceToken[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -270,6 +274,52 @@ model SystemSetting {
   value     String
 
   updatedAt DateTime @updatedAt
+}
+
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  email     String
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
+}
+
+// Stores a user's TOTP secret (encrypted at rest in the application layer)
+model UserTotpSecret {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  secret     String   // AES-256-GCM encrypted TOTP secret
+  isVerified Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// Short-lived tokens for the two-step MFA login flow.
+// verified=false: issued after credentials check, stored in httpOnly cookie, consumed when TOTP code is submitted.
+// verified=true:  issued after TOTP is verified, returned to client as mfaBypassToken for NextAuth signIn.
+model MfaPendingToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  verified  Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Long-lived device tokens (30 days) — hash stored here, raw value in browser cookie
+model DeviceToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique // SHA-256 of raw token in browser cookie
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model InvoicePeriod {

@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/form";
 import { changePassword, ChangePasswordData } from "@/app/actions/profile";
 import { Check, KeyRound } from "lucide-react";
+import { passwordSchema as newPasswordSchema, PASSWORD_REQUIREMENTS } from "@/lib/password-validation";
 
 type ConsultantWithRelations = Consultant & {
   groups: ConsultantGroup[];
@@ -36,7 +37,7 @@ interface ProfileViewProps {
 
 const passwordSchema = z.object({
   currentPassword: z.string().min(1, "Current password is required"),
-  newPassword: z.string().min(8, "Password must be at least 8 characters"),
+  newPassword: newPasswordSchema,
   confirmPassword: z.string(),
 }).refine((data) => data.newPassword === data.confirmPassword, {
   message: "Passwords don't match",
@@ -203,6 +204,7 @@ export function ProfileView({ profile }: ProfileViewProps) {
                       <FormControl>
                         <Input type="password" {...field} />
                       </FormControl>
+                      <p className="text-xs text-muted-foreground">{PASSWORD_REQUIREMENTS}</p>
                       <FormMessage />
                     </FormItem>
                   )}

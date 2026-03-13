@@ -30,10 +30,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { createUser, updateUser, UserFormData } from "@/app/actions/users";
+import { passwordSchema, PASSWORD_REQUIREMENTS } from "@/lib/password-validation";
 
 const formSchema = z.object({
   email: z.string().email("Invalid email address"),
-  password: z.string().optional(),
+  password: passwordSchema.optional(),
   role: z.nativeEnum(UserRole),
   consultantId: z.string().nullable(),
 });
@@ -166,14 +167,14 @@ export function UserForm({ user, open, onOpenChange, consultants }: UserFormProp
                   <FormControl>
                     <Input 
                       type="password" 
-                      placeholder={user ? "Leave blank to keep current" : "Min 8 characters"} 
-                      {...field} 
+                      placeholder={user ? "Leave blank to keep current" : "New password"}
+                      {...field}
                     />
                   </FormControl>
                   <FormDescription>
-                    {user 
-                      ? "Leave blank to keep the current password" 
-                      : "Password must be at least 8 characters"}
+                    {user
+                      ? `Leave blank to keep the current password. If changing: ${PASSWORD_REQUIREMENTS}`
+                      : PASSWORD_REQUIREMENTS}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
