@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { getPendingPTOCount } from "@/app/actions/pto";
+import { prisma } from "@/lib/prisma";
 
 export default async function DashboardLayout({
   children,
@@ -17,6 +18,15 @@ export default async function DashboardLayout({
 
   if (session.user.requirePasswordReset) {
     redirect("/force-reset");
+  }
+
+  const totpRecord = await prisma.userTotpSecret.findUnique({
+    where: { userId: session.user.id },
+    select: { isVerified: true },
+  });
+
+  if (!totpRecord?.isVerified) {
+    redirect("/setup-mfa");
   }
 
   const pendingPTOCount = await getPendingPTOCount();
