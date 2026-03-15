@@ -120,7 +120,7 @@ export function ConsultantTable({ consultants, users, roleDefinitions }: Consult
 
   return (
     <>
-      <div className="rounded-md border">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -128,7 +128,7 @@ export function ConsultantTable({ consultants, users, roleDefinitions }: Consult
                 <span className="flex items-center gap-1">Name <SortIcon col="name" sortKey={sortKey} sortDir={sortDir} /></span>
               </TableHead>
               <TableHead>Groups</TableHead>
-              <TableHead>Billing Roles</TableHead>
+              <TableHead className="min-w-[120px] max-w-[200px]">Billing Roles</TableHead>
               <TableHead className="text-right cursor-pointer select-none" onClick={() => handleSort("standardHours")}>
                 <span className="flex items-center justify-end gap-1">Std Hours <SortIcon col="standardHours" sortKey={sortKey} sortDir={sortDir} /></span>
               </TableHead>
@@ -171,10 +171,10 @@ export function ConsultantTable({ consultants, users, roleDefinitions }: Consult
                       ))}
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="min-w-[120px] max-w-[200px]">
                     <div className="flex flex-wrap gap-1">
                       {consultant.billingRoles.map((br) => (
-                        <Badge key={br.id} variant="secondary" className="text-xs">
+                        <Badge key={br.id} variant="secondary" className="text-xs whitespace-normal break-words">
                           {br.roleDefinition.name}
                         </Badge>
                       ))}
