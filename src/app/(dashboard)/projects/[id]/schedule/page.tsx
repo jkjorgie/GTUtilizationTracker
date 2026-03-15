@@ -40,6 +40,9 @@ export default async function ProjectSchedulePage({
     ...project,
     client: decrypt(project.client),
     projectName: decrypt(project.projectName),
+    projectManager: project.projectManager
+      ? { name: decrypt(project.projectManager.name) }
+      : null,
   };
 
   return (
