@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { decrypt } from "@/lib/encryption";
 import { getProjectSchedule } from "@/app/actions/project-schedule";
 import { ProjectScheduleView } from "@/components/projects/project-schedule-view";
 
@@ -35,7 +36,13 @@ export default async function ProjectSchedulePage({
     redirect("/projects");
   }
 
+  const decryptedProject = {
+    ...project,
+    client: decrypt(project.client),
+    projectName: decrypt(project.projectName),
+  };
+
   return (
-    <ProjectScheduleView project={project} scheduleItems={scheduleItems} />
+    <ProjectScheduleView project={decryptedProject} scheduleItems={scheduleItems} />
   );
 }
