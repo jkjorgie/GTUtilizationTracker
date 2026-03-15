@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { PTOStatus, AllocationEntryType } from "@prisma/client";
 import { startOfWeek, eachWeekOfInterval, parseISO, addDays, isAfter } from "date-fns";
+import { decrypt, encrypt } from "@/lib/encryption";
 
 const ptoSchema = z.object({
   consultantId: z.string().min(1, "Consultant is required"),
@@ -65,7 +66,7 @@ export async function getPTORequests(filters?: {
     where.consultantId = filters.consultantId;
   }
 
-  return prisma.pTORequest.findMany({
+  const requests = await prisma.pTORequest.findMany({
     where,
     include: {
       consultant: {
@@ -77,6 +78,11 @@ export async function getPTORequests(filters?: {
     },
     orderBy: { createdAt: "desc" },
   });
+
+  return requests.map((r) => ({
+    ...r,
+    consultant: { ...r.consultant, name: decrypt(r.consultant.name) },
+  }));
 }
 
 export async function getPTORequest(id: string) {
@@ -209,17 +215,21 @@ export async function approvePTORequest(id: string) {
     throw new Error("PTO request is not pending");
   }
 
-  // Find or create a PTO project
-  let ptoProject = await prisma.project.findFirst({
-    where: { timecode: "INT-PTO-001" },
+  // Find or create a PTO project (timecode is encrypted; scan all and match after decryption)
+  const PTO_TIMECODE = "INT-PTO-001";
+  const allProjects = await prisma.project.findMany({
+    select: { id: true, timecode: true, client: true, projectName: true },
   });
+  let ptoProject = allProjects.find((p) => {
+    try { return p.timecode && decrypt(p.timecode) === PTO_TIMECODE; } catch { return false; }
+  }) ?? null;
 
   if (!ptoProject) {
     ptoProject = await prisma.project.create({
       data: {
-        client: "Internal",
-        projectName: "PTO",
-        timecode: "INT-PTO-001",
+        client: encrypt("Internal"),
+        projectName: encrypt("PTO"),
+        timecode: encrypt(PTO_TIMECODE),
         type: "ASSIGNED",
         status: "ACTIVE",
       },
@@ -369,16 +379,18 @@ export async function getConsultantsForPTO() {
   const session = await auth();
   if (!session) throw new Error("Unauthorized");
 
+  const decryptAndSort = (rows: { id: string; name: string }[]) =>
+    rows
+      .map((c) => ({ id: c.id, name: decrypt(c.name) }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
   if (session.user.role === "ADMIN") {
-    return prisma.consultant.findMany({
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    });
+    const rows = await prisma.consultant.findMany({ select: { id: true, name: true } });
+    return decryptAndSort(rows);
   }
 
   if (session.user.role === "MANAGER" && session.user.consultantId) {
-    // Self + direct reports
-    return prisma.consultant.findMany({
+    const rows = await prisma.consultant.findMany({
       where: {
         OR: [
           { id: session.user.consultantId },
@@ -386,16 +398,16 @@ export async function getConsultantsForPTO() {
         ],
       },
       select: { id: true, name: true },
-      orderBy: { name: "asc" },
     });
+    return decryptAndSort(rows);
   }
 
-  // EMPLOYEE: just themselves
   if (session.user.consultantId) {
-    return prisma.consultant.findMany({
+    const rows = await prisma.consultant.findMany({
       where: { id: session.user.consultantId },
       select: { id: true, name: true },
     });
+    return decryptAndSort(rows);
   }
 
   return [];
@@ -456,9 +468,13 @@ export async function cancelPTORequest(id: string) {
 
   // If the request was approved, reverse its allocations from utilization
   if (pto.status === PTOStatus.APPROVED) {
-    const ptoProject = await prisma.project.findFirst({
-      where: { timecode: "INT-PTO-001" },
+    const PTO_TIMECODE = "INT-PTO-001";
+    const allProjects = await prisma.project.findMany({
+      select: { id: true, timecode: true },
     });
+    const ptoProject = allProjects.find((p) => {
+      try { return p.timecode && decrypt(p.timecode) === PTO_TIMECODE; } catch { return false; }
+    }) ?? null;
 
     if (ptoProject) {
       let hoursPerDay = 8;

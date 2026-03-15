@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import * as XLSX from "xlsx";
 import { startOfWeek, subWeeks, format as formatDate } from "date-fns";
+import { decrypt, decryptNullable } from "@/lib/encryption";
 
 export interface UnmatchedEntry {
   projectCode: string;
@@ -182,7 +183,9 @@ export async function processActualsUpload(formData: FormData): Promise<UploadRe
     select: { id: true, timecode: true },
   });
   const projectMap = new Map(
-    allProjects.filter((p) => p.timecode).map((p) => [p.timecode!.toLowerCase(), p.id])
+    allProjects
+      .filter((p) => p.timecode)
+      .map((p) => [decrypt(p.timecode!).toLowerCase(), p.id])
   );
 
   const allConsultants = await prisma.consultant.findMany({
@@ -190,9 +193,8 @@ export async function processActualsUpload(formData: FormData): Promise<UploadRe
   });
   const consultantMap = new Map(
     allConsultants.map((c) => {
-      const matchName = c.netSuiteName?.trim()
-        ? c.netSuiteName.trim()
-        : c.name;
+      const rawNetSuite = decryptNullable(c.netSuiteName)?.trim();
+      const matchName = rawNetSuite ? rawNetSuite : decrypt(c.name);
       return [matchName.toLowerCase().replace(/\s+/g, " "), c.id];
     })
   );

@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { AllocationEntryType, OtherInvoiceStatus } from "@prisma/client";
 import { getSystemSetting } from "./system-settings";
+import { encrypt, encryptNullable, decrypt, decryptNullable } from "@/lib/encryption";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const DEFAULT_ANCHOR = "2025-01-05"; // First Sunday of 2025
@@ -162,7 +163,7 @@ export async function getInvoicingData(projectId: string): Promise<InvoicingData
           const member = memberMap.get(alloc.consultantId);
           rowMap.set(rowKey, {
             consultantId: alloc.consultantId,
-            consultantName: member?.consultant.name ?? "Unknown",
+            consultantName: member ? decrypt(member.consultant.name) : "Unknown",
             weekStart: alloc.weekStart,
             hours: alloc.hours,
             entryType: alloc.entryType,
@@ -244,12 +245,12 @@ export async function getInvoicingData(projectId: string): Promise<InvoicingData
   return {
     project: {
       id: project.id,
-      client: project.client,
-      projectName: project.projectName,
+      client: decrypt(project.client),
+      projectName: decrypt(project.projectName),
       budget: project.budget,
       currency: project.currency,
       salesDiscount: project.salesDiscount,
-      comments: project.comments,
+      comments: decryptNullable(project.comments),
     },
     billablePeriods,
     nonBillablePeriods,
@@ -257,7 +258,7 @@ export async function getInvoicingData(projectId: string): Promise<InvoicingData
       id: oi.id,
       date: oi.date.toISOString(),
       invoiceNumber: oi.invoiceNumber,
-      description: oi.description,
+      description: decryptNullable(oi.description),
       amount: oi.amount,
       status: oi.status,
       invoiceDate: oi.invoiceDate ? oi.invoiceDate.toISOString() : null,
@@ -311,7 +312,7 @@ export async function updateProjectInvoiceComments(projectId: string, comments: 
 
   await prisma.project.update({
     where: { id: projectId },
-    data: { comments },
+    data: { comments: encryptNullable(comments) },
   });
 
   revalidatePath("/invoicing");
@@ -334,7 +335,7 @@ export async function createOtherInvoice(data: {
       projectId: data.projectId,
       date: new Date(data.date),
       invoiceNumber: data.invoiceNumber ?? null,
-      description: data.description ?? null,
+      description: encryptNullable(data.description ?? null),
       amount: data.amount,
       status: data.status ?? OtherInvoiceStatus.EXPECTED,
       invoiceDate: data.invoiceDate ? new Date(data.invoiceDate) : null,
@@ -363,7 +364,7 @@ export async function updateOtherInvoice(
     data: {
       ...(data.date && { date: new Date(data.date) }),
       invoiceNumber: data.invoiceNumber ?? null,
-      description: data.description ?? null,
+      description: encryptNullable(data.description ?? null),
       ...(data.amount !== undefined && { amount: data.amount }),
       ...(data.status !== undefined && { status: data.status }),
       invoiceDate: data.invoiceDate ? new Date(data.invoiceDate) : null,

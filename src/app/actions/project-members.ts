@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { startOfWeek, addWeeks, parseISO } from "date-fns";
 import { AllocationEntryType } from "@prisma/client";
+import { decrypt } from "@/lib/encryption";
 
 export async function getProjectMembers(projectId: string) {
   const session = await auth();
@@ -50,7 +51,7 @@ export async function getProjectMembers(projectId: string) {
   for (const member of members) {
     result.push({
       consultantId: member.consultantId,
-      consultantName: member.consultant.name,
+      consultantName: decrypt(member.consultant.name),
       memberId: member.id,
       roleDefinitionId: member.roleDefinitionId,
       roleDefinitionName: member.roleDefinition?.name ?? null,
@@ -65,7 +66,7 @@ export async function getProjectMembers(projectId: string) {
     if (!memberConsultantIds.has(alloc.consultantId)) {
       result.push({
         consultantId: alloc.consultantId,
-        consultantName: alloc.consultant.name,
+        consultantName: decrypt(alloc.consultant.name),
         memberId: null,
         roleDefinitionId: null,
         roleDefinitionName: null,
@@ -104,7 +105,7 @@ export async function createProjectMember(
   });
 
   revalidatePath("/projects");
-  return member;
+  return { ...member, consultant: { ...member.consultant, name: decrypt(member.consultant.name) } };
 }
 
 export async function updateProjectMember(
@@ -130,7 +131,7 @@ export async function updateProjectMember(
   });
 
   revalidatePath("/projects");
-  return member;
+  return { ...member, consultant: { ...member.consultant, name: decrypt(member.consultant.name) } };
 }
 
 export async function removeProjectMember(memberId: string) {

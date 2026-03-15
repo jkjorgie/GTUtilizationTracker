@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { AllocationEntryType, ProjectStatus, ProjectType } from "@prisma/client";
 import { startOfWeek, parseISO } from "date-fns";
 import { getWeeksInRange, getDefaultDateRange } from "@/lib/utils";
+import { decrypt, decryptNullable } from "@/lib/encryption";
 
 // Helper to format dates consistently in UTC to avoid timezone issues
 function formatDateUTC(date: Date): string {
@@ -147,8 +148,8 @@ export async function getUtilizationData(
 
       cell.details.push({
         projectId: allocation.project.id,
-        projectName: allocation.project.projectName,
-        timecode: allocation.project.timecode,
+        projectName: decrypt(allocation.project.projectName),
+        timecode: decryptNullable(allocation.project.timecode),
         projectType: allocation.project.type,
         hours: allocation.hours,
         entryType: allocation.entryType,
@@ -187,8 +188,8 @@ export async function getUtilizationData(
     }
     consultantProjectsMap[assoc.consultantId].push({
       projectId: assoc.project.id,
-      projectName: assoc.project.projectName,
-      timecode: assoc.project.timecode,
+      projectName: decrypt(assoc.project.projectName),
+      timecode: decryptNullable(assoc.project.timecode),
     });
   }
   for (const id of Object.keys(consultantProjectsMap)) {
@@ -222,12 +223,12 @@ export async function getUtilizationData(
   return {
     consultants: consultants.map((c) => ({
       id: c.id,
-      name: c.name,
+      name: decrypt(c.name),
       standardHours: c.standardHours,
       roles: c.billingRoles.map((br) => br.roleDefinition.name),
       billingRoleIds: c.billingRoles.map((br) => br.roleDefinitionId),
       groups: c.groups.map((g) => g.group),
-      managerName: c.manager?.name ?? null,
+      managerName: c.manager ? decrypt(c.manager.name) : null,
     })),
     weeks: weekStrings,
     allocations: allocationMap,

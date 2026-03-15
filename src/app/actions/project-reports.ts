@@ -4,22 +4,21 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { AllocationEntryType } from "@prisma/client";
+import {
+  encrypt,
+  encryptNullable,
+  decrypt,
+  decryptNullable,
+  encryptRisks,
+  encryptActionItems,
+  decryptRisks,
+  decryptActionItems,
+  type EncryptableRisk,
+  type EncryptableActionItem,
+} from "@/lib/encryption";
 
-export type Risk = {
-  id: string;
-  description: string;
-  impact: "HIGH" | "MEDIUM" | "LOW";
-  mitigation: string;
-  owner: string;
-};
-
-export type ActionItem = {
-  id: string;
-  description: string;
-  owner: string;
-  dueDate: string;
-  status: "OPEN" | "DONE" | "BLOCKED";
-};
+export type Risk = EncryptableRisk;
+export type ActionItem = EncryptableActionItem;
 
 export type ProjectReportData = {
   id: string;
@@ -54,8 +53,10 @@ function parseReportJson(report: {
 }): ProjectReportData {
   return {
     ...report,
-    risks: Array.isArray(report.risks) ? (report.risks as Risk[]) : [],
-    actionItems: Array.isArray(report.actionItems) ? (report.actionItems as ActionItem[]) : [],
+    highlights: decryptNullable(report.highlights),
+    upcomingWork: decryptNullable(report.upcomingWork),
+    risks: decryptRisks(report.risks),
+    actionItems: decryptActionItems(report.actionItems),
   };
 }
 
@@ -95,9 +96,12 @@ export async function createProjectReport(
       where: { id: data.copyFromReportId },
     });
     if (source) {
+      // highlights and upcomingWork are stored encrypted — copy as-is
       highlights = source.highlights;
       upcomingWork = source.upcomingWork;
+      // risks: copy encrypted objects as-is (id/impact are plaintext, sensitive attrs are encrypted)
       risks = Array.isArray(source.risks) ? (source.risks as Risk[]) : [];
+      // actionItems: filter by status (status is plaintext), copy encrypted objects for non-DONE items
       actionItems = Array.isArray(source.actionItems)
         ? (source.actionItems as ActionItem[]).filter((ai) => ai.status !== "DONE")
         : [];
@@ -136,10 +140,10 @@ export async function updateProjectReport(
   const report = await prisma.projectReport.update({
     where: { id: reportId },
     data: {
-      ...(data.highlights !== undefined && { highlights: data.highlights }),
-      ...(data.upcomingWork !== undefined && { upcomingWork: data.upcomingWork }),
-      ...(data.risks !== undefined && { risks: data.risks as object[] }),
-      ...(data.actionItems !== undefined && { actionItems: data.actionItems as object[] }),
+      ...(data.highlights !== undefined && { highlights: encrypt(data.highlights) }),
+      ...(data.upcomingWork !== undefined && { upcomingWork: encrypt(data.upcomingWork) }),
+      ...(data.risks !== undefined && { risks: encryptRisks(data.risks) as object[] }),
+      ...(data.actionItems !== undefined && { actionItems: encryptActionItems(data.actionItems) as object[] }),
     },
   });
 
@@ -200,7 +204,6 @@ export async function getProjectReportContext(projectId: string): Promise<Projec
 
   if (!project) throw new Error("Project not found");
 
-  // Budget spent: sum ACTUAL allocation hours × billing rate
   const actualAllocations = await prisma.allocation.findMany({
     where: { projectId, entryType: AllocationEntryType.ACTUAL },
     select: { consultantId: true, hours: true },
@@ -217,7 +220,6 @@ export async function getProjectReportContext(projectId: string): Promise<Projec
     return sum + alloc.hours * rate;
   }, 0);
 
-  // Schedule status from ALL schedule items (tasks + milestones)
   const scheduleItems = await prisma.projectScheduleItem.findMany({
     where: { projectId },
   });
@@ -241,14 +243,12 @@ export async function getProjectReportContext(projectId: string): Promise<Projec
     scheduleStatus = behindCount > 0 ? "BEHIND" : atRiskCount > 0 ? "AT_RISK" : "ON_TRACK";
   }
 
-  // Phases for budget status + overall progress
   const phases = await prisma.projectPhase.findMany({
     where: { projectId },
     orderBy: { displayOrder: "asc" },
     select: { id: true, name: true, color: true, percentComplete: true, budgetSpent: true, totalBudget: true },
   });
 
-  // Budget status: phase-based (spending vs expected given completion)
   let budgetStatus: "ON_TRACK" | "AT_RISK" | "OVER" | "NOT_SET" = "NOT_SET";
   const phasesWithBudget = phases.filter((p) => p.totalBudget > 0);
   if (phasesWithBudget.length > 0) {
@@ -265,7 +265,6 @@ export async function getProjectReportContext(projectId: string): Promise<Projec
     budgetStatus = overCount > 0 ? "OVER" : atRiskCount > 0 ? "AT_RISK" : "ON_TRACK";
   }
 
-  // Overall progress: average of phases if any, else average of task completion
   let overallProgress = 0;
   if (phases.length > 0) {
     overallProgress = Math.round(
@@ -282,14 +281,16 @@ export async function getProjectReportContext(projectId: string): Promise<Projec
 
   return {
     id: project.id,
-    client: project.client,
-    projectName: project.projectName,
+    client: decrypt(project.client),
+    projectName: decrypt(project.projectName),
     budget: project.budget,
     currency: project.currency,
     healthStatus: project.healthStatus,
     startDate: project.startDate,
     endDate: project.endDate,
-    projectManager: project.projectManager,
+    projectManager: project.projectManager
+      ? { name: decrypt(project.projectManager.name) }
+      : null,
     budgetSpent,
     scheduleStatus,
     budgetStatus,

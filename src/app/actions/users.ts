@@ -7,6 +7,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { UserRole } from "@prisma/client";
 import { passwordSchema } from "@/lib/password-validation";
+import { decrypt } from "@/lib/encryption";
 
 const userSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -23,7 +24,7 @@ export async function getUsers() {
     throw new Error("Unauthorized");
   }
 
-  return prisma.user.findMany({
+  const users = await prisma.user.findMany({
     select: {
       id: true,
       email: true,
@@ -39,6 +40,13 @@ export async function getUsers() {
     },
     orderBy: { email: "asc" },
   });
+
+  return users.map((u) => ({
+    ...u,
+    consultant: u.consultant
+      ? { ...u.consultant, name: decrypt(u.consultant.name) }
+      : null,
+  }));
 }
 
 export async function getUser(id: string) {
@@ -210,17 +218,13 @@ export async function getUnlinkedConsultants() {
     throw new Error("Unauthorized");
   }
 
-  // Get consultants that don't have a user account linked
-  return prisma.consultant.findMany({
-    where: {
-      user: null,
-    },
-    select: {
-      id: true,
-      name: true,
-    },
-    orderBy: { name: "asc" },
+  const rows = await prisma.consultant.findMany({
+    where: { user: null },
+    select: { id: true, name: true },
   });
+  return rows
+    .map((c) => ({ id: c.id, name: decrypt(c.name) }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function getAllConsultantsForLinking() {
@@ -229,14 +233,14 @@ export async function getAllConsultantsForLinking() {
     throw new Error("Unauthorized");
   }
 
-  return prisma.consultant.findMany({
+  const rows = await prisma.consultant.findMany({
     select: {
       id: true,
       name: true,
-      user: {
-        select: { id: true },
-      },
+      user: { select: { id: true } },
     },
-    orderBy: { name: "asc" },
   });
+  return rows
+    .map((c) => ({ ...c, name: decrypt(c.name) }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }

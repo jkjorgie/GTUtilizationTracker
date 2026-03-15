@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { ScheduleItemType } from "@prisma/client";
+import { encrypt, encryptNullable, decrypt, decryptNullable } from "@/lib/encryption";
 
 export type ScheduleItemData = {
   id: string;
@@ -33,7 +34,6 @@ function buildTree(items: Omit<ScheduleItemData, "children">[]): ScheduleItemDat
     }
   });
 
-  // Sort by displayOrder
   const sortItems = (arr: ScheduleItemData[]) => {
     arr.sort((a, b) => a.displayOrder - b.displayOrder);
     arr.forEach((i) => sortItems(i.children));
@@ -52,7 +52,13 @@ export async function getProjectSchedule(projectId: string): Promise<ScheduleIte
     orderBy: { displayOrder: "asc" },
   });
 
-  return buildTree(items);
+  const decrypted = items.map((i) => ({
+    ...i,
+    name: decrypt(i.name),
+    owner: decryptNullable(i.owner),
+  }));
+
+  return buildTree(decrypted);
 }
 
 export async function createScheduleItem(
@@ -80,8 +86,8 @@ export async function createScheduleItem(
     data: {
       projectId,
       type: data.type,
-      name: data.name,
-      owner: data.owner ?? null,
+      name: encrypt(data.name),
+      owner: encryptNullable(data.owner ?? null),
       startDate: data.startDate ? new Date(data.startDate) : null,
       endDate: data.endDate ? new Date(data.endDate) : null,
       percentComplete: data.percentComplete ?? 0,
@@ -110,8 +116,8 @@ export async function updateScheduleItem(
   const item = await prisma.projectScheduleItem.update({
     where: { id: itemId },
     data: {
-      ...(data.name !== undefined && { name: data.name }),
-      ...(data.owner !== undefined && { owner: data.owner }),
+      ...(data.name !== undefined && { name: encrypt(data.name) }),
+      ...(data.owner !== undefined && { owner: encryptNullable(data.owner) }),
       ...(data.startDate !== undefined && {
         startDate: data.startDate ? new Date(data.startDate) : null,
       }),
